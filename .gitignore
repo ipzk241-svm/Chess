@@ -1,0 +1,44 @@
+# Build Folders
+bin/
+obj/
+
+# User-specific files
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio specific
+.vscode/
+.vs/
+*.vcxproj.user
+*.vcxproj.filters
+
+# NuGet Packages
+*.nupkg
+packages/
+project.lock.json
+project.fragment.lock.json
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
+*.pdb
+
+# Generated files
+*.designer.cs
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# IDE-specific files
+.idea/
+*.iml
