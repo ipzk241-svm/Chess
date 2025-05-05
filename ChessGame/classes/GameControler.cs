@@ -172,6 +172,22 @@ namespace ChessGame.Classes
 			}
 			return false;
 		}
+		public void MovePieceFromNetwork(Position start, Position end)
+		{
+			Piece piece = Board[start.Y, start.X];
+			Piece captured = Board[end.Y, end.X];
+
+			Board[end.Y, end.X] = piece;
+			Board[start.Y, start.X] = null;
+			piece.UpdatePosition(end);
+
+			if (piece is King)
+				UpdateKingPosition(end, piece.IsWhite);
+
+			LastMove = (start, end);
+			IsWhiteTurn = !IsWhiteTurn;
+			CheckGameState(null); 
+		}
 
 		public void CheckGameState(BoardPanel boardPanel)
 		{

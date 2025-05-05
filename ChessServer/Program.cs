@@ -1,4 +1,5 @@
 ﻿using ChessServer;
 
-var server = new Server();
-server.Start(9000);
+Server server = new Server();
+server.Start(5000); 
+Console.ReadLine();
