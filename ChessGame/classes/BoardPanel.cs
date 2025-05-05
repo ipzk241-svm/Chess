@@ -10,7 +10,7 @@ namespace ChessGame.Classes
 		private const int Size = 8;
 		private int cellSize = 60;
 		private Position selectedPiece = null;
-
+		private NetworkClient networkClient;
 		public BoardPanel(int cellSize = 60)
 		{
 			this.cellSize = cellSize;
@@ -20,6 +20,7 @@ namespace ChessGame.Classes
 			this.Paint += Board_Paint;
 			this.MouseClick += BoardPanel_MouseClick;
 		}
+		public void SetNetworkClient(NetworkClient client) => networkClient = client;
 
 		private void Board_Paint(object sender, PaintEventArgs e)
 		{
@@ -100,6 +101,8 @@ namespace ChessGame.Classes
 
 		private void BoardPanel_MouseClick(object sender, MouseEventArgs e)
 		{
+			if (GameControler.Instance.IsWhiteTurn != networkClient.IsLocalPlayerWhite)
+				return;
 			if (GameControler.Instance.GameEnded) return;
 
 			int clickedRow = e.Y / cellSize;
@@ -144,6 +147,8 @@ namespace ChessGame.Classes
 							GameControler.Instance.LastMove = (startPos, endPos);
 							GameControler.Instance.IsWhiteTurn = !GameControler.Instance.IsWhiteTurn;
 							GameControler.Instance.CheckGameState(this);
+							networkClient?.SendMove(startPos, endPos);
+
 						}
 					}
 					else
@@ -163,17 +168,18 @@ namespace ChessGame.Classes
 								GameControler.Instance.LastMove = (startPos, endPos);
 								GameControler.Instance.IsWhiteTurn = !GameControler.Instance.IsWhiteTurn;
 								GameControler.Instance.CheckGameState(this);
+								networkClient?.SendMove(startPos, endPos);
 							}
 							else
 							{
 								board[startPos.Y, startPos.X] = piece;
 								board[endPos.Y, endPos.X] = capturedPiece;
 								piece.UpdatePosition(startPos);
+
 							}
 						}
 					}
 				}
-
 				selectedPiece = null;
 				Invalidate();
 			}

@@ -7,7 +7,6 @@ using System.Threading;
 namespace ChessServer
 {
 
-
 	public class Server
 	{
 		private TcpListener listener;
@@ -39,8 +38,7 @@ namespace ChessServer
 				{
 					Console.WriteLine("Starting new game session.");
 					var session = new GameSession(client1, client2);
-					var thread = new Thread(session.Run);
-					thread.Start();
+					Task.Run(() => session.RunAsync());
 				}
 			}
 		}

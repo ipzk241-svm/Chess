@@ -16,7 +16,7 @@ namespace ChessServer
 			player2 = p2;
 		}
 
-		public void Run()
+		public async Task RunAsync()
 		{
 			using var stream1 = player1.GetStream();
 			using var stream2 = player2.GetStream();
@@ -25,29 +25,36 @@ namespace ChessServer
 			using var reader2 = new StreamReader(stream2);
 			using var writer2 = new StreamWriter(stream2) { AutoFlush = true };
 
-			writer1.WriteLine("You are Player 1");
-			writer2.WriteLine("You are Player 2");
+			await writer1.WriteLineAsync("white");
+			await writer2.WriteLineAsync("black");
 
+			bool isWhiteTurn = true;
 			bool running = true;
+
 			while (running)
 			{
 				try
 				{
-					if (stream1.DataAvailable)
+					if (isWhiteTurn)
 					{
-						string msg1 = reader1.ReadLine();
-						writer2.WriteLine(msg1);
-					}
+						string? msg = await reader1.ReadLineAsync();
+						if (msg == null) break;
 
-					if (stream2.DataAvailable)
+						await writer2.WriteLineAsync(msg);
+						isWhiteTurn = false;
+					}
+					else
 					{
-						string msg2 = reader2.ReadLine();
-						writer1.WriteLine(msg2);
+						string? msg = await reader2.ReadLineAsync();
+						if (msg == null) break;
+
+						await writer1.WriteLineAsync(msg);
+						isWhiteTurn = true;
 					}
 				}
-				catch
+				catch (Exception ex)
 				{
-					Console.WriteLine("One of the players disconnected.");
+					Console.WriteLine($"Connection error: {ex.Message}");
 					break;
 				}
 			}
@@ -55,6 +62,7 @@ namespace ChessServer
 			player1.Close();
 			player2.Close();
 		}
+
 	}
 
 }
