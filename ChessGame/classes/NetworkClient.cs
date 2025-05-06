@@ -1,17 +1,16 @@
-﻿using System;
-using System.IO;
-using System.Net.Sockets;
-using System.Threading;
+﻿using ChessClassLibrary;
 using ChessGame.Classes;
-using ChessGame.Classes.Pieces;
+using System;
+using System.IO;
+using System.Net.Http;
+using System.Net.Sockets;
+using System.Text.Json;
+using System.Threading;
+using System.Windows.Forms;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 
 namespace ChessGame
 {
-	using System;
-	using System.IO;
-	using System.Net.Sockets;
-	using System.Threading;
-	using System.Windows.Forms;
 
 	public class NetworkClient
 	{
@@ -20,34 +19,65 @@ namespace ChessGame
 		private StreamWriter writer;
 		private Thread listenThread;
 		private BoardPanel boardPanel;
+		private Stream stream;
+		public string clientName;
+		public string opponentName;
 		public bool IsLocalPlayerWhite { get; set; }
 
-		public NetworkClient(string host, int port, BoardPanel panel)
+		public event Action<string> OpponentNameReceived;
+
+		public NetworkClient(string host, int port, BoardPanel panel, string clientName)
 		{
-			boardPanel = panel;
+			this.boardPanel = panel;
+			this.clientName = clientName;
+
+			ConnectToServer(host, port);
+			SendJoinMessage();
+			StartListening();
+		}
+
+		private void ConnectToServer(string host, int port)
+		{
 			client = new TcpClient(host, port);
-			var stream = client.GetStream();
+			stream = client.GetStream();
 			reader = new StreamReader(stream);
-			string role = reader.ReadLine();
-			IsLocalPlayerWhite = role == "white" ? true : false;
 			writer = new StreamWriter(stream) { AutoFlush = true };
 
+			string role = reader.ReadLine();
+			IsLocalPlayerWhite = role == "white";
+		}
+
+		private void SendJoinMessage()
+		{
+			var msg = new CustomMessage
+			{
+				Type = MessageType.JOIN,
+				Payload = clientName
+			};
+			string json = JsonSerializer.Serialize(msg);
+			writer.WriteLine(json);
+		}
+
+		private void StartListening()
+		{
 			listenThread = new Thread(ListenForMoves);
 			listenThread.Start();
 		}
 
-		private void ListenForMoves()
+
+		private async void ListenForMoves()
 		{
 			try
 			{
 				while (true)
 				{
-					string message = reader.ReadLine();
+					string json = await reader.ReadLineAsync();
+					var message = JsonSerializer.Deserialize<CustomMessage>(json);
 					if (message == null) break;
 
 					Application.OpenForms[0]?.BeginInvoke(new Action(() =>
 					{
-						HandleIncomingMove(message);
+						HandleIncomingMessage(message);
 					}));
 				}
 			}
@@ -57,16 +87,35 @@ namespace ChessGame
 			}
 		}
 
-		public void SendMove(Position from, Position to)
+		public async void SendMove(Position from, Position to)
 		{
-			writer.WriteLine($"{from.X},{from.Y}:{to.X},{to.Y}");
+			var msg = new CustomMessage
+			{
+				Type = MessageType.MOVE,
+				Payload = $"{from.X},{from.Y}:{to.X},{to.Y}"
+			};
+			string json = JsonSerializer.Serialize(msg);
+			await writer.WriteLineAsync(json);
 		}
 
-		private void HandleIncomingMove(string msg)
+		private void HandleIncomingMessage(CustomMessage msg)
+		{
+			if(msg.Type == MessageType.JOIN)
+			{
+				opponentName = msg.Payload;
+				OpponentNameReceived?.Invoke(opponentName);
+			}
+			if (msg.Type == MessageType.MOVE)
+			{
+				HandleMove(msg.Payload);
+			}
+			
+		}
+		private void HandleMove(string move)
 		{
 			try
 			{
-				var parts = msg.Split(':');
+				var parts = move.Split(':');
 				var from = parts[0].Split(',');
 				var to = parts[1].Split(',');
 
@@ -80,6 +129,11 @@ namespace ChessGame
 			{
 				MessageBox.Show("Received malformed move from other player.");
 			}
+		}
+		public void Disconnect()
+		{
+			stream?.Close();
+			client?.Close();
 		}
 	}
 
