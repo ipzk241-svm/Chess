@@ -8,13 +8,23 @@ namespace ChessGame.Classes
 	{
 		private static GameControler _instance;
 		public Piece[,] Board;
-		public bool IsWhiteTurn { get; set; }
+		private bool _isWhiteTurn;
+		public bool IsWhiteTurn { get
+			{
+				return _isWhiteTurn;
+			}
+			set
+			{
+				_isWhiteTurn = value;
+				OnSideChanged?.Invoke();
+			}
+		}
 		public (Position from, Position to)? LastMove;
 		public Position WhiteKingPos;
 		public Position BlackKingPos;
 		public bool GameEnded;
 		private const int Size = 8;
-
+		public Action OnSideChanged;
 		private GameControler()
 		{
 			Board = new Piece[Size, Size];
@@ -63,9 +73,9 @@ namespace ChessGame.Classes
 			BlackKingPos = new Position(4, 0);
 		}
 
-		public void RestartGame()
+		public void StartGame()
 		{
-			Board.Initialize();
+			Board = new Piece[Size, Size];
 			InitializeBoard();
 			IsWhiteTurn = true;
 			LastMove = null;
@@ -214,9 +224,10 @@ namespace ChessGame.Classes
 			MessageBox.Show(message, "Game Over", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			if (MessageBox.Show("Would you like to start a new game?", "New Game", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
 			{
-				RestartGame();
+				StartGame();
 				boardPanel.Invalidate();
 			}
 		}
+
 	}
 }

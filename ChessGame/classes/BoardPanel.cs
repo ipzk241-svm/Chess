@@ -25,6 +25,11 @@ namespace ChessGame.Classes
 		private void Board_Paint(object sender, PaintEventArgs e)
 		{
 			Graphics g = e.Graphics;
+			if (!networkClient.IsLocalPlayerWhite)
+			{
+				g.TranslateTransform(Width, Height);
+				g.RotateTransform(180);
+			}
 			var board = GameControler.Instance.Board;
 
 			for (int row = 0; row < Size; row++)
@@ -93,8 +98,15 @@ namespace ChessGame.Classes
 
 					if (board[row, col] != null)
 					{
-						g.DrawImage(board[row, col].Icon, col * cellSize + 5, row * cellSize + 5, 50, 50);
+						Image icon = board[row, col].Icon;
+						if (!networkClient.IsLocalPlayerWhite)
+						{
+							icon = (Image)icon.Clone();
+							icon.RotateFlip(RotateFlipType.Rotate180FlipNone);
+						}
+						g.DrawImage(icon, col * cellSize + 5, row * cellSize + 5, 50, 50);
 					}
+
 				}
 			}
 		}
@@ -105,8 +117,9 @@ namespace ChessGame.Classes
 				return;
 			if (GameControler.Instance.GameEnded) return;
 
-			int clickedRow = e.Y / cellSize;
-			int clickedCol = e.X / cellSize;
+			int clickedRow = networkClient.IsLocalPlayerWhite ? e.Y / cellSize : (Height - e.Y) / cellSize;
+			int clickedCol = networkClient.IsLocalPlayerWhite ? e.X / cellSize : (Width - e.X) / cellSize;
+
 
 			if (clickedRow < 0 || clickedRow >= Size || clickedCol < 0 || clickedCol >= Size)
 				return;
