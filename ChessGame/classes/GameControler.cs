@@ -196,10 +196,10 @@ namespace ChessGame.Classes
 
 			LastMove = (start, end);
 			IsWhiteTurn = !IsWhiteTurn;
-			CheckGameState(null); 
+			CheckGameState(); 
 		}
 
-		public void CheckGameState(BoardPanel boardPanel)
+		public void CheckGameState()
 		{
 			Position kingPos = GetKingPosition(IsWhiteTurn);
 			bool isInCheck = IsSquareUnderAttack(kingPos, !IsWhiteTurn);
@@ -209,24 +209,27 @@ namespace ChessGame.Classes
 			{
 				if (!hasLegalMoves)
 				{
-					EndGame(!IsWhiteTurn ? "White wins by checkmate!" : "Black wins by checkmate!", boardPanel);
+					if(IsWhiteTurn)
+					{
+						EndGame("Checkmate! Black wins.");
+					}
+					else
+					{
+						EndGame("Checkmate! White wins.");
+					}
 				}
 			}
 			else if (!hasLegalMoves)
 			{
-				EndGame("Stalemate! The game is a draw.", boardPanel);
+				EndGame("Stalemate! The game is a draw.");
 			}
 		}
 
-		private void EndGame(string message, BoardPanel boardPanel)
+		private void EndGame(string message)
 		{
 			GameEnded = true;
 			MessageBox.Show(message, "Game Over", MessageBoxButtons.OK, MessageBoxIcon.Information);
-			if (MessageBox.Show("Would you like to start a new game?", "New Game", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
-			{
-				StartGame();
-				boardPanel.Invalidate();
-			}
+			
 		}
 
 	}

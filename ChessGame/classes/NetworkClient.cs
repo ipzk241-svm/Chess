@@ -2,16 +2,14 @@
 using ChessGame.Classes;
 using System;
 using System.IO;
-using System.Net.Http;
 using System.Net.Sockets;
 using System.Text.Json;
-using System.Threading;
 using System.Windows.Forms;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
+using System.Threading;
+using ChessGame.classes;
 
 namespace ChessGame
 {
-
 	public class NetworkClient
 	{
 		private TcpClient client;
@@ -21,10 +19,21 @@ namespace ChessGame
 		private BoardPanel boardPanel;
 		private Stream stream;
 		public string clientName;
-		public string opponentName;
+		private string _opponentName;
+		public string opponentName
+		{
+			get => _opponentName;
+			set
+			{
+				_opponentName = value;
+				OpponentNameReceived?.Invoke(_opponentName);
+			}
+		}
+
 		public bool IsLocalPlayerWhite { get; set; }
 
 		public event Action<string> OpponentNameReceived;
+		public event Action<string> DisconnectAction;
 
 		public NetworkClient(string host, int port, BoardPanel panel, string clientName)
 		{
@@ -38,13 +47,20 @@ namespace ChessGame
 
 		private void ConnectToServer(string host, int port)
 		{
-			client = new TcpClient(host, port);
-			stream = client.GetStream();
-			reader = new StreamReader(stream);
-			writer = new StreamWriter(stream) { AutoFlush = true };
+			try
+			{
+				client = new TcpClient(host, port);
+				stream = client.GetStream();
+				reader = new StreamReader(stream);
+				writer = new StreamWriter(stream) { AutoFlush = true };
 
-			string role = reader.ReadLine();
-			IsLocalPlayerWhite = role == "white";
+				string role = reader.ReadLine();
+				IsLocalPlayerWhite = role == "white";
+			}
+			catch (Exception ex)
+			{
+				throw new Exception("Не вдалося підключитись до сервера.", ex);
+			}
 		}
 
 		private void SendJoinMessage()
@@ -61,9 +77,9 @@ namespace ChessGame
 		private void StartListening()
 		{
 			listenThread = new Thread(ListenForMoves);
+			listenThread.IsBackground = true;
 			listenThread.Start();
 		}
-
 
 		private async void ListenForMoves()
 		{
@@ -72,18 +88,17 @@ namespace ChessGame
 				while (true)
 				{
 					string json = await reader.ReadLineAsync();
-					var message = JsonSerializer.Deserialize<CustomMessage>(json);
-					if (message == null) break;
+					if (json == null) break;
 
-					Application.OpenForms[0]?.BeginInvoke(new Action(() =>
-					{
-						HandleIncomingMessage(message);
-					}));
+					var message = JsonSerializer.Deserialize<CustomMessage>(json);
+					if (message == null) continue;
+
+					HandleIncomingMessage(message);
 				}
 			}
 			catch
 			{
-				MessageBox.Show("Disconnected from server.");
+				boardPanel.SafeInvoke(() => DisconnectAction?.Invoke(opponentName));
 			}
 		}
 
@@ -100,17 +115,25 @@ namespace ChessGame
 
 		private void HandleIncomingMessage(CustomMessage msg)
 		{
-			if(msg.Type == MessageType.JOIN)
+			switch (msg.Type)
 			{
-				opponentName = msg.Payload;
-				OpponentNameReceived?.Invoke(opponentName);
+				case MessageType.JOIN:
+					opponentName = msg.Payload;
+					break;
+
+				case MessageType.MOVE:
+					HandleMove(msg.Payload);
+					break;
+
+				case MessageType.LEAVE:
+					boardPanel.SafeInvoke(() =>
+					{
+						DisconnectAction?.Invoke(opponentName);
+					});
+					break;
 			}
-			if (msg.Type == MessageType.MOVE)
-			{
-				HandleMove(msg.Payload);
-			}
-			
 		}
+
 		private void HandleMove(string move)
 		{
 			try
@@ -123,18 +146,36 @@ namespace ChessGame
 				var end = new Position(int.Parse(to[0]), int.Parse(to[1]));
 
 				GameControler.Instance.MovePieceFromNetwork(start, end);
-				boardPanel.Invalidate();
+
+				boardPanel.SafeInvoke(() => boardPanel.Invalidate());
 			}
 			catch
 			{
-				MessageBox.Show("Received malformed move from other player.");
+				boardPanel.SafeInvoke(() =>
+				{
+					MessageBox.Show("Помилка при обробці ходу.", "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				});
 			}
 		}
+
+		public async void SendLeave()
+		{
+			if (writer == null) return;
+
+			var msg = new CustomMessage
+			{
+				Type = MessageType.LEAVE,
+				Payload = clientName
+			};
+
+			string json = JsonSerializer.Serialize(msg);
+			await writer.WriteLineAsync(json);
+		}
+
 		public void Disconnect()
 		{
 			stream?.Close();
 			client?.Close();
 		}
 	}
-
 }

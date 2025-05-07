@@ -19,7 +19,7 @@ namespace ChessGame
 
 		private void btn_FindGame_Click(object sender, EventArgs e)
 		{
-			var userName = tb_name.Text;
+			string userName = tb_name.Text;
 			this.Hide();
 
 			MainForm gameForm = new MainForm(userName);
