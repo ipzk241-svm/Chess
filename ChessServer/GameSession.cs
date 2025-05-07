@@ -1,10 +1,13 @@
-﻿using System;
+﻿using ChessClassLibrary;
+using System;
 using System.IO;
 using System.Net.Sockets;
+using System.Net.WebSockets;
+using System.Text.Json;
+using System.Threading.Tasks;
 
 namespace ChessServer
 {
-
 	public class GameSession
 	{
 		private TcpClient player1;
@@ -28,41 +31,83 @@ namespace ChessServer
 			await writer1.WriteLineAsync("white");
 			await writer2.WriteLineAsync("black");
 
-			bool isWhiteTurn = true;
-			bool running = true;
+			string? join1 = await reader1.ReadLineAsync(); 
+			string? join2 = await reader2.ReadLineAsync(); 
 
-			while (running)
+			string name1 = ExtractNameFromJoin(join1);
+			string name2 = ExtractNameFromJoin(join2);
+
+			await writer1.WriteLineAsync(JsonSerializer.Serialize(new CustomMessage
 			{
-				try
-				{
-					if (isWhiteTurn)
-					{
-						string? msg = await reader1.ReadLineAsync();
-						if (msg == null) break;
+				Type = MessageType.JOIN,
+				Payload = name2
+			}));
 
-						await writer2.WriteLineAsync(msg);
-						isWhiteTurn = false;
-					}
-					else
-					{
-						string? msg = await reader2.ReadLineAsync();
-						if (msg == null) break;
+			await writer2.WriteLineAsync(JsonSerializer.Serialize(new CustomMessage
+			{
+				Type = MessageType.JOIN,
+				Payload = name1
+			}));
 
-						await writer1.WriteLineAsync(msg);
-						isWhiteTurn = true;
-					}
-				}
-				catch (Exception ex)
-				{
-					Console.WriteLine($"Connection error: {ex.Message}");
-					break;
-				}
-			}
+			var task1 = ListenToPlayer(reader1, writer2, writer1);
+			var task2 = ListenToPlayer(reader2, writer1, writer2);
+
+			await Task.WhenAny(task1, task2);
 
 			player1.Close();
 			player2.Close();
 		}
 
-	}
+		private string ExtractNameFromJoin(string? json)
+		{
+			try
+			{
+				var msg = JsonSerializer.Deserialize<CustomMessage>(json);
+				if (msg?.Type == MessageType.JOIN && !string.IsNullOrEmpty(msg.Payload))
+					return msg.Payload;
+			}
+			catch { }
 
+			return "Невідомий";
+		}
+
+
+		private async Task ListenToPlayer(StreamReader reader, StreamWriter opponentWriter, StreamWriter selfWriter)
+		{
+			try
+			{
+				while (true)
+				{
+					string? msg = await reader.ReadLineAsync();
+					if (msg == null)
+					{
+						await SendLeaveMessage(opponentWriter);
+						break;
+					}
+
+					await opponentWriter.WriteLineAsync(msg);
+				}
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"Connection error: {ex.Message}");
+				await SendLeaveMessage(opponentWriter);
+			}
+		}
+
+		private async Task SendLeaveMessage(StreamWriter writer)
+		{
+			var leaveMsg = new
+			{
+				Type = MessageType.LEAVE,
+				Payload = "Opponent"
+			};
+			string json = JsonSerializer.Serialize(leaveMsg);
+			try
+			{
+				await writer.WriteLineAsync(json);
+			}
+			catch {}
+		}
+	}
 }

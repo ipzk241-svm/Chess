@@ -10,6 +10,6 @@ namespace ChessClassLibrary
 	{
 		MOVE,
 		JOIN,
-		GAME_OVER,
+		LEAVE
 	}
 }

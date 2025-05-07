@@ -25,7 +25,7 @@ namespace ChessGame.Classes
 		private void Board_Paint(object sender, PaintEventArgs e)
 		{
 			Graphics g = e.Graphics;
-			if (!networkClient.IsLocalPlayerWhite)
+			if (!networkClient.IsLocalPlayerWhite && networkClient != null)
 			{
 				g.TranslateTransform(Width, Height);
 				g.RotateTransform(180);
@@ -159,7 +159,7 @@ namespace ChessGame.Classes
 							GameControler.Instance.UpdateKingPosition(endPos, piece.IsWhite);
 							GameControler.Instance.LastMove = (startPos, endPos);
 							GameControler.Instance.IsWhiteTurn = !GameControler.Instance.IsWhiteTurn;
-							GameControler.Instance.CheckGameState(this);
+							GameControler.Instance.CheckGameState();
 							networkClient?.SendMove(startPos, endPos);
 
 						}
@@ -180,7 +180,7 @@ namespace ChessGame.Classes
 							{
 								GameControler.Instance.LastMove = (startPos, endPos);
 								GameControler.Instance.IsWhiteTurn = !GameControler.Instance.IsWhiteTurn;
-								GameControler.Instance.CheckGameState(this);
+								GameControler.Instance.CheckGameState();
 								networkClient?.SendMove(startPos, endPos);
 							}
 							else
