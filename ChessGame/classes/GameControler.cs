@@ -9,7 +9,9 @@ namespace ChessGame.Classes
 		private static GameControler _instance;
 		public Piece[,] Board;
 		private bool _isWhiteTurn;
-		public bool IsWhiteTurn { get
+		public bool IsWhiteTurn
+		{
+			get
 			{
 				return _isWhiteTurn;
 			}
@@ -44,34 +46,32 @@ namespace ChessGame.Classes
 			}
 		}
 
-		private void InitializeBoard()
+		public void InitializeBoard()
 		{
-			for (int i = 0; i < Size; i++)
+			var pieceFactory = new PieceFactory();
+
+			for (int i = 0; i < 8; i++)
 			{
-				Board[1, i] = new Pawn(new Position(i, 1), false);
-				Board[6, i] = new Pawn(new Position(i, 6), true);
+				Board[1, i] = pieceFactory.CreatePiece(PieceType.Pawn, new Position(i, 1), false);
+				Board[6, i] = pieceFactory.CreatePiece(PieceType.Pawn, new Position(i, 6), true);
 			}
-			Board[0, 0] = new Rook(new Position(0, 0), false);
-			Board[0, 1] = new Knight(new Position(1, 0), false);
-			Board[0, 2] = new Bishop(new Position(2, 0), false);
-			Board[0, 3] = new Queen(new Position(3, 0), false);
-			Board[0, 4] = new King(new Position(4, 0), false);
-			Board[0, 5] = new Bishop(new Position(5, 0), false);
-			Board[0, 6] = new Knight(new Position(6, 0), false);
-			Board[0, 7] = new Rook(new Position(7, 0), false);
 
-			Board[7, 0] = new Rook(new Position(0, 7), true);
-			Board[7, 1] = new Knight(new Position(1, 7), true);
-			Board[7, 2] = new Bishop(new Position(2, 7), true);
-			Board[7, 3] = new Queen(new Position(3, 7), true);
-			Board[7, 4] = new King(new Position(4, 7), true);
-			Board[7, 5] = new Bishop(new Position(5, 7), true);
-			Board[7, 6] = new Knight(new Position(6, 7), true);
-			Board[7, 7] = new Rook(new Position(7, 7), true);
+			PieceType[] layout =
+			[
+		PieceType.Rook, PieceType.Knight, PieceType.Bishop, PieceType.Queen,
+		PieceType.King, PieceType.Bishop, PieceType.Knight, PieceType.Rook
+			];
 
-			WhiteKingPos = new Position(4, 7);
+			for (int i = 0; i < 8; i++)
+			{
+				Board[0, i] = pieceFactory.CreatePiece(layout[i], new Position(i, 0), false);
+				Board[7, i] = pieceFactory.CreatePiece(layout[i], new Position(i, 7), true);
+			}
+
 			BlackKingPos = new Position(4, 0);
+			WhiteKingPos = new Position(4, 7);
 		}
+
 
 		public void StartGame()
 		{
@@ -196,7 +196,7 @@ namespace ChessGame.Classes
 
 			LastMove = (start, end);
 			IsWhiteTurn = !IsWhiteTurn;
-			CheckGameState(); 
+			CheckGameState();
 		}
 
 		public void CheckGameState()
@@ -209,7 +209,7 @@ namespace ChessGame.Classes
 			{
 				if (!hasLegalMoves)
 				{
-					if(IsWhiteTurn)
+					if (IsWhiteTurn)
 					{
 						EndGame("Checkmate! Black wins.");
 					}
@@ -229,7 +229,7 @@ namespace ChessGame.Classes
 		{
 			GameEnded = true;
 			MessageBox.Show(message, "Game Over", MessageBoxButtons.OK, MessageBoxIcon.Information);
-			
+
 		}
 
 	}
