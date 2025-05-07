@@ -7,224 +7,208 @@ namespace ChessGame.Classes
 {
 	public class BoardPanel : Panel
 	{
-		private const int Size = 8;
-		private readonly int cellSize;
-		private Position selectedPiece = null;
-		private NetworkClient networkClient;
+		private const int BoardSize = 8;
+		private readonly int _cellSize;
+		private Position _selectedPiece = null;
+		private NetworkClient _networkClient;
 
 		public BoardPanel(int cellSize = 60)
 		{
-			this.cellSize = cellSize;
-			this.Width = cellSize * Size;
-			this.Height = cellSize * Size;
+			_cellSize = cellSize;
+			this.Width = cellSize * BoardSize;
+			this.Height = cellSize * BoardSize;
 			this.DoubleBuffered = true;
 			this.Paint += Board_Paint;
 			this.MouseClick += BoardPanel_MouseClick;
 		}
 
-		public void SetNetworkClient(NetworkClient client) => networkClient = client;
+		public void SetNetworkClient(NetworkClient client) => _networkClient = client;
 
 		private void Board_Paint(object sender, PaintEventArgs e)
 		{
 			Graphics g = e.Graphics;
-			if (!networkClient.IsLocalPlayerWhite)
+			ApplyBoardRotation(g);
+			var board = GameControler.Instance.Board;
+
+			for (int row = 0; row < BoardSize; row++)
+			{
+				for (int col = 0; col < BoardSize; col++)
+				{
+					DrawCellBackground(g, row, col, board);
+					DrawPieceIcon(g, row, col, board);
+					g.DrawRectangle(Pens.Black, col * _cellSize, row * _cellSize, _cellSize, _cellSize);
+				}
+			}
+		}
+
+		private void ApplyBoardRotation(Graphics g)
+		{
+			if (_networkClient != null && !_networkClient.IsLocalPlayerWhite)
 			{
 				g.TranslateTransform(Width, Height);
 				g.RotateTransform(180);
 			}
-
-			DrawBoard(g);
-			DrawHighlights(g);
-			DrawPieces(g);
 		}
 
-		private void DrawBoard(Graphics g)
+		private void DrawCellBackground(Graphics g, int row, int col, Piece[,] board)
 		{
-			for (int row = 0; row < Size; row++)
-			{
-				for (int col = 0; col < Size; col++)
-				{
-					Brush baseBrush = (row + col) % 2 == 0 ? Brushes.White : Brushes.Gray;
-					FillCell(g, baseBrush, row, col);
-					g.DrawRectangle(Pens.Black, GetCellRect(row, col));
-				}
-			}
+			Brush backgroundBrush = (row + col) % 2 == 0 ? Brushes.White : Brushes.Gray;
+			Rectangle cellRect = new Rectangle(col * _cellSize, row * _cellSize, _cellSize, _cellSize);
+
+			if (IsLastMovePosition(row, col))
+				backgroundBrush = new SolidBrush(Color.YellowGreen);
+			else if (IsKingInCheck(row, col, board))
+				backgroundBrush = new SolidBrush(Color.MediumVioletRed);
+			else if (IsSelectedPiece(row, col))
+				backgroundBrush = new SolidBrush(Color.Yellow);
+			else if (_selectedPiece != null && IsValidMoveTarget(row, col, board))
+				backgroundBrush = GetMoveHighlightBrush(row, col, board);
+
+			g.FillRectangle(backgroundBrush, cellRect);
 		}
 
-		private void DrawHighlights(Graphics g)
+		private bool IsLastMovePosition(int row, int col)
 		{
-			var board = GameControler.Instance.Board;
-
-			if (GameControler.Instance.LastMove.HasValue)
-			{
-				var (from, to) = GameControler.Instance.LastMove.Value;
-				FillCell(g, Brushes.YellowGreen, from.Y, from.X);
-				FillCell(g, Brushes.YellowGreen, to.Y, to.X);
-			}
-
-			for (int row = 0; row < Size; row++)
-			{
-				for (int col = 0; col < Size; col++)
-				{
-					var piece = board[row, col];
-					if (piece is King king && king.IsWhite == GameControler.Instance.IsWhiteTurn &&
-						GameControler.Instance.IsKingInCheck(king.IsWhite))
-					{
-						FillCell(g, Brushes.MediumVioletRed, row, col);
-					}
-				}
-			}
-
-			if (selectedPiece != null)
-			{
-				FillCell(g, Brushes.Yellow, selectedPiece.Y, selectedPiece.X);
-				ShowValidMoves(g, selectedPiece);
-			}
+			if (!GameControler.Instance.LastMove.HasValue) return false;
+			var (fromPos, toPos) = GameControler.Instance.LastMove.Value;
+			return (row == fromPos.Y && col == fromPos.X) || (row == toPos.Y && col == toPos.X);
 		}
 
-		private void ShowValidMoves(Graphics g, Position from)
+		private bool IsKingInCheck(int row, int col, Piece[,] board)
 		{
-			var board = GameControler.Instance.Board;
-			var piece = board[from.Y, from.X];
-
-			for (int row = 0; row < Size; row++)
-			{
-				for (int col = 0; col < Size; col++)
-				{
-					var to = new Position(col, row);
-					if (!piece.IsValidMove(to, board)) continue;
-					if (board[row, col]?.IsWhite == piece.IsWhite) continue;
-
-					bool isKing = piece is King;
-					bool isInCheck = GameControler.Instance.IsKingInCheck(piece.IsWhite);
-
-					if (isKing)
-					{
-						if (!GameControler.Instance.IsSquareUnderAttack(to, !piece.IsWhite))
-							FillCell(g, Brushes.Green, row, col);
-					}
-					else if (!isInCheck || GameControler.Instance.IsMoveResolvingCheck(from, to, piece.IsWhite))
-					{
-						Brush brush = board[row, col] != null ? Brushes.Red : Brushes.LightGreen;
-						FillCell(g, brush, row, col);
-					}
-				}
-			}
+			return board[row, col] is King &&
+				   board[row, col].IsWhite == GameControler.Instance.IsWhiteTurn &&
+				   GameControler.Instance.IsKingInCheck(GameControler.Instance.IsWhiteTurn);
 		}
 
-		private void DrawPieces(Graphics g)
+		private bool IsSelectedPiece(int row, int col)
 		{
-			var board = GameControler.Instance.Board;
+			return _selectedPiece != null && _selectedPiece.Y == row && _selectedPiece.X == col;
+		}
 
-			for (int row = 0; row < Size; row++)
+		private bool IsValidMoveTarget(int row, int col, Piece[,] board)
+		{
+			Position endPos = new(col, row);
+			Piece piece = board[_selectedPiece.Y, _selectedPiece.X];
+			bool isValidMove = piece != null && piece.IsValidMove(endPos, board) &&
+							  (board[row, col] == null || board[row, col].IsWhite != piece.IsWhite);
+
+			if (!isValidMove) return false;
+
+			bool isKingMove = piece is King;
+			bool isKingInCheck = GameControler.Instance.IsKingInCheck(piece.IsWhite);
+
+			return isKingMove
+				? !GameControler.Instance.IsSquareUnderAttack(endPos, !piece.IsWhite)
+				: !isKingInCheck || GameControler.Instance.IsMoveResolvingCheck(_selectedPiece, endPos, piece.IsWhite);
+		}
+
+		private Brush GetMoveHighlightBrush(int row, int col, Piece[,] board)
+		{
+			Piece piece = board[_selectedPiece.Y, _selectedPiece.X];
+			return piece is King ? new SolidBrush(Color.Green) :
+				   board[row, col] != null ? new SolidBrush(Color.Red) :
+				   new SolidBrush(Color.LightGreen);
+		}
+
+		private void DrawPieceIcon(Graphics g, int row, int col, Piece[,] board)
+		{
+			if (board[row, col] == null) return;
+
+			Image icon = board[row, col].Icon;
+			if (!_networkClient.IsLocalPlayerWhite)
 			{
-				for (int col = 0; col < Size; col++)
-				{
-					var piece = board[row, col];
-					if (piece == null) return;
-
-					Image icon = (Image)piece.Icon.Clone();
-					if (!networkClient.IsLocalPlayerWhite)
-						icon.RotateFlip(RotateFlipType.Rotate180FlipNone);
-
-					g.DrawImage(icon, col * cellSize + 5, row * cellSize + 5, 50, 50);
-				}
+				icon = (Image)icon.Clone();
+				icon.RotateFlip(RotateFlipType.Rotate180FlipNone);
 			}
+			g.DrawImage(icon, col * _cellSize + 5, row * _cellSize + 5, 50, 50);
 		}
 
 		private void BoardPanel_MouseClick(object sender, MouseEventArgs e)
 		{
-			if (GameControler.Instance.IsWhiteTurn != networkClient.IsLocalPlayerWhite || GameControler.Instance.GameEnded)
-				return;
+			if (!CanProcessClick()) return;
 
-			int row = networkClient.IsLocalPlayerWhite ? e.Y / cellSize : (Height - e.Y) / cellSize;
-			int col = networkClient.IsLocalPlayerWhite ? e.X / cellSize : (Width - e.X) / cellSize;
+			var (clickedRow, clickedCol) = CalculateClickPosition(e);
+			if (!IsValidPosition(clickedRow, clickedCol)) return;
 
-			if (row < 0 || row >= Size || col < 0 || col >= Size)
-				return;
-
-			if (selectedPiece == null)
-				TrySelectPiece(row, col);
-			else
-				TryMovePiece(row, col);
-		}
-
-		private void TrySelectPiece(int row, int col)
-		{
-			var piece = GameControler.Instance.Board[row, col];
-			if (piece != null && piece.IsWhite == GameControler.Instance.IsWhiteTurn)
-			{
-				selectedPiece = new Position(col, row);
-				Invalidate();
-			}
-		}
-
-		private void TryMovePiece(int row, int col)
-		{
 			var board = GameControler.Instance.Board;
-			var from = selectedPiece;
-			var to = new Position(col, row);
-			var piece = board[from.Y, from.X];
 
-			if (!piece.IsValidMove(to, board) || board[to.Y, to.X]?.IsWhite == piece.IsWhite)
+			if (_selectedPiece == null)
 			{
-				selectedPiece = null;
-				Invalidate();
-				return;
+				TrySelectPiece(clickedRow, clickedCol, board);
 			}
-
-			if (piece is King && !GameControler.Instance.IsSquareUnderAttack(to, !piece.IsWhite))
+			else
 			{
-				MakeMove(piece, from, to);
+				TryMovePiece(clickedRow, clickedCol, board);
 			}
-			else if (!GameControler.Instance.IsKingInCheck(piece.IsWhite) || GameControler.Instance.IsMoveResolvingCheck(from, to, piece.IsWhite))
-			{
-				Piece captured = board[to.Y, to.X];
-				board[to.Y, to.X] = piece;
-				board[from.Y, from.X] = null;
-				piece.UpdatePosition(to);
-
-				if (!GameControler.Instance.IsSquareUnderAttack(GameControler.Instance.GetKingPosition(piece.IsWhite), !piece.IsWhite))
-				{
-					FinalizeMove(from, to);
-				}
-				else
-				{
-					board[from.Y, from.X] = piece;
-					board[to.Y, to.X] = captured;
-					piece.UpdatePosition(from);
-				}
-			}
-
-			selectedPiece = null;
 			Invalidate();
 		}
 
-		private void MakeMove(Piece piece, Position from, Position to)
+		private bool CanProcessClick()
 		{
-			var board = GameControler.Instance.Board;
-			board[to.Y, to.X] = piece;
-			board[from.Y, from.X] = null;
-			piece.UpdatePosition(to);
-
-			if (piece is King king)
-				GameControler.Instance.UpdateKingPosition(to, king.IsWhite);
-
-			FinalizeMove(from, to);
+			return _networkClient.IsLocalPlayerWhite == GameControler.Instance.IsWhiteTurn &&
+				   !GameControler.Instance.GameEnded;
 		}
 
-		private void FinalizeMove(Position from, Position to)
+		private (int row, int col) CalculateClickPosition(MouseEventArgs e)
 		{
-			GameControler.Instance.LastMove = (from, to);
+			return _networkClient.IsLocalPlayerWhite
+				? (e.Y / _cellSize, e.X / _cellSize)
+				: ((Height - e.Y) / _cellSize, (Width - e.X) / _cellSize);
+		}
+
+		private bool IsValidPosition(int row, int col)
+		{
+			return row >= 0 && row < BoardSize && col >= 0 && col < BoardSize;
+		}
+
+		private void TrySelectPiece(int row, int col, Piece[,] board)
+		{
+			if (board[row, col] != null && board[row, col].IsWhite == GameControler.Instance.IsWhiteTurn)
+			{
+				_selectedPiece = new Position(col, row);
+			}
+		}
+
+		private void TryMovePiece(int clickedRow, int clickedCol, Piece[,] board)
+		{
+			Position endPos = new(clickedCol, clickedRow);
+			Piece piece = board[_selectedPiece.Y, _selectedPiece.X];
+
+			if (IsValidPosition(clickedRow, clickedCol) && IsValidMoveTarget(clickedRow, clickedCol, board))
+			{
+				ExecuteMove(piece, _selectedPiece, endPos, board);
+			}
+			_selectedPiece = null;
+		}
+
+		private void ExecuteMove(Piece piece, Position startPos, Position endPos, Piece[,] board)
+		{
+			Piece capturedPiece = board[endPos.Y, endPos.X];
+			board[endPos.Y, endPos.X] = piece;
+			board[startPos.Y, startPos.X] = null;
+			piece.UpdatePosition(endPos);
+
+			if (piece is King)
+			{
+				GameControler.Instance.UpdateKingPosition(endPos, piece.IsWhite);
+			}
+			else
+			{
+				Position kingPos = GameControler.Instance.GetKingPosition(piece.IsWhite);
+				if (GameControler.Instance.IsSquareUnderAttack(kingPos, !piece.IsWhite))
+				{
+					board[startPos.Y, startPos.X] = piece;
+					board[endPos.Y, endPos.X] = capturedPiece;
+					piece.UpdatePosition(startPos);
+					return;
+				}
+			}
+
+			GameControler.Instance.LastMove = (startPos, endPos);
 			GameControler.Instance.IsWhiteTurn = !GameControler.Instance.IsWhiteTurn;
 			GameControler.Instance.CheckGameState();
-			networkClient?.SendMove(from, to);
+			_networkClient?.SendMove(startPos, endPos);
 		}
-
-		private void FillCell(Graphics g, Brush brush, int row, int col)
-			=> g.FillRectangle(brush, col * cellSize, row * cellSize, cellSize, cellSize);
-
-		private Rectangle GetCellRect(int row, int col)
-			=> new Rectangle(col * cellSize, row * cellSize, cellSize, cellSize);
 	}
 }
