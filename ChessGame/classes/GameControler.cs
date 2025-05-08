@@ -7,13 +7,13 @@ namespace ChessGame.Classes
 	public class GameControler
 	{
 		private const int BoardSize = 8;
-		private static GameControler _instance;
 		private readonly Piece[,] _board;
 		private bool _isWhiteTurn;
 		private Position _whiteKingPos;
 		private Position _blackKingPos;
 
-		public static GameControler Instance => _instance ??= new GameControler();
+		private static readonly Lazy<GameControler> _instance = new Lazy<GameControler>(() => new GameControler());
+		public static GameControler Instance => _instance.Value;
 
 		public Piece[,] Board => _board;
 		public bool IsWhiteTurn
@@ -42,14 +42,12 @@ namespace ChessGame.Classes
 		{
 			var pieceFactory = new PieceFactory();
 
-			// Initialize pawns
 			for (int i = 0; i < BoardSize; i++)
 			{
 				_board[1, i] = pieceFactory.CreatePiece(PieceType.Pawn, new Position(i, 1), false);
 				_board[6, i] = pieceFactory.CreatePiece(PieceType.Pawn, new Position(i, 6), true);
 			}
 
-			// Initialize other pieces
 			PieceType[] layout = { PieceType.Rook, PieceType.Knight, PieceType.Bishop, PieceType.Queen,
 								   PieceType.King, PieceType.Bishop, PieceType.Knight, PieceType.Rook };
 
@@ -107,14 +105,12 @@ namespace ChessGame.Classes
 			Piece piece = _board[startPos.Y, startPos.X];
 			Piece capturedPiece = _board[endPos.Y, endPos.X];
 
-			// Simulate move
 			_board[endPos.Y, endPos.X] = piece;
 			_board[startPos.Y, startPos.X] = null;
 
 			Position kingPos = piece is King ? endPos : GetKingPosition(forWhite);
 			bool stillInCheck = IsSquareUnderAttack(kingPos, !forWhite);
 
-			// Revert move
 			_board[startPos.Y, startPos.X] = piece;
 			_board[endPos.Y, endPos.X] = capturedPiece;
 

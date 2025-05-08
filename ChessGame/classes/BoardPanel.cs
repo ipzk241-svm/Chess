@@ -57,11 +57,11 @@ namespace ChessGame.Classes
 
 			if (IsLastMovePosition(row, col))
 				backgroundBrush = new SolidBrush(Color.YellowGreen);
-			else if (IsKingInCheck(row, col, board))
+			if (IsKingInCheck(row, col, board))
 				backgroundBrush = new SolidBrush(Color.MediumVioletRed);
-			else if (IsSelectedPiece(row, col))
+			if (IsSelectedPiece(row, col))
 				backgroundBrush = new SolidBrush(Color.Yellow);
-			else if (_selectedPiece != null && IsValidMoveTarget(row, col, board))
+			if (_selectedPiece != null && IsValidMoveTarget(row, col, board))
 				backgroundBrush = GetMoveHighlightBrush(row, col, board);
 
 			g.FillRectangle(backgroundBrush, cellRect);
