@@ -1,67 +1,84 @@
-using ChessGame.classes;
 using ChessGame.Classes;
+using ChessGame.interfaces;
+using System;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 
 namespace ChessGame
 {
 	public partial class MainForm : Form
 	{
-		private NetworkClient networkClient;
-		private BoardPanel board;
-		private readonly string userName;
+		private IGameMediator _mediator;
+		private readonly string _userName;
+		private BoardPanel _boardPanel;
+		private NetworkClient _networkClient;
+		private bool _connected = false;
 
 		public MainForm(string userName)
 		{
 			InitializeComponent();
-			this.userName = userName;
+			_userName = userName;
+			_boardPanel = new BoardPanel();
 		}
 
 		private async void MainForm_Load(object sender, EventArgs e)
 		{
 			loadingLabel.SafeInvoke(() => loadingLabel.Visible = true);
-			board = new BoardPanel();
+			AnimateLoadingLabel();
 
 			try
 			{
 				await Task.Run(() =>
 				{
 					GameControler.Instance.StartGame();
-					networkClient = new NetworkClient("127.0.0.1", 5000, board, userName);
+					_networkClient = new NetworkClient("127.0.0.1", 5000, _userName);
+					_mediator = new GameMediator(GameControler.Instance, _boardPanel, _networkClient, () => this.Close());
+					_connected = true;
+				});
+
+				this.SafeInvoke(() =>
+				{
+					ChessPanel.Controls.Add(_boardPanel);
+					SetupEventHandlers();
+					InitializeLabels();
 				});
 			}
 			catch (Exception ex)
 			{
 				this.SafeInvoke(() =>
 				{
+					Console.WriteLine($"Connection error: {ex.Message}");
 					MessageBox.Show(ex.Message, "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
 					this.Close();
 				});
-				return;
 			}
-
-			this.SafeInvoke(() =>
-			{
-				ChessPanel.Controls.Add(board);
-				board.SetNetworkClient(networkClient);
-				InitializeLabels();
-				SetupEventHandlers();
-			});
 		}
+
 
 		private void InitializeLabels()
 		{
 			loadingLabel.Visible = false;
-			playerName_label.Text = "Привіт гравцю " + userName;
+			playerName_label.Text = "Привіт, " + _userName;
 			infoPanel.Visible = true;
 		}
-
+		private async void AnimateLoadingLabel()
+		{
+			while (loadingLabel.Visible)
+			{
+				for (int i = 0; i <= 3; i++)
+				{
+					loadingLabel.SafeInvoke(() => loadingLabel.Text = "Пошук гравця" + new string('.', i));
+					await Task.Delay(500);
+				}
+			}
+		}
 		private void SetupEventHandlers()
 		{
-			networkClient.OpponentNameReceived += name =>
+			_networkClient.OpponentNameReceived += name =>
 			{
-				oponentName_label.SafeInvoke(() =>
-				{
-					oponentName_label.Text = "Ти граєш проти " + name;
-				});
+				loadingLabel.Visible = false;
+				oponentName_label.Text = "Ти граєш проти " + name;
 			};
 
 			GameControler.Instance.OnSideChanged += () =>
@@ -72,20 +89,15 @@ namespace ChessGame
 				});
 			};
 
-			networkClient.DisconnectAction += (name) =>
-			{
-				this.SafeInvoke(() =>
-				{
-					MessageBox.Show($"Суперник {name} вийшов із гри.", "Інформація", MessageBoxButtons.OK, MessageBoxIcon.Information);
-					this.Close();
-				});
-			};
 		}
 
 		private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
 		{
-			networkClient?.SendLeave();
-			networkClient?.Disconnect();
+			if (_mediator != null)
+				_mediator.Disconnect();
+			else if (_connected && _networkClient != null)
+				_networkClient.Disconnect();
 		}
+
 	}
 }

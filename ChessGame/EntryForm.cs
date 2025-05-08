@@ -1,11 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace ChessGame
@@ -19,14 +12,20 @@ namespace ChessGame
 
 		private void btn_FindGame_Click(object sender, EventArgs e)
 		{
-			string userName = tb_name.Text;
+			string userName = tb_name.Text.Trim();
+			if (string.IsNullOrEmpty(userName))
+			{
+				MessageBox.Show("Введіть ім'я гравця.", "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				return;
+			}
+
 			this.Hide();
-
 			MainForm gameForm = new MainForm(userName);
-			gameForm.ShowDialog();
-
-			this.Show(); 
+			gameForm.FormClosed += (s, args) =>
+			{
+				this.Show();
+			};
+			gameForm.Show();
 		}
-
 	}
 }
