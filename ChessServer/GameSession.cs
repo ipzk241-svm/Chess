@@ -1,176 +1,183 @@
-﻿using ChessClassLibrary;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Net.Sockets;
+﻿using System.Net.Sockets;
 using System.Text.Json;
+using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using ChessClassLibrary;
+using ChessServer;
 
-namespace ChessServer
+public class GameSession
 {
-	public class GameSession
+	private readonly Logger logger;
+	private TcpClient player1;
+	private TcpClient player2;
+
+	private readonly List<MoveRecord> moveHistory = new();
+	private string playerWhite = "Білий";
+	private string playerBlack = "Чорний";
+
+	public GameSession(TcpClient p1, TcpClient p2, Logger logger)
 	{
-		private TcpClient player1;
-		private TcpClient player2;
+		player1 = p1;
+		player2 = p2;
+		this.logger = logger;
+	}
 
-		private readonly List<MoveRecord> moveHistory = new();
-		private string playerWhite = "Білий";
-		private string playerBlack = "Чорний";
+	public async Task RunAsync()
+	{
+		using var stream1 = player1.GetStream();
+		using var stream2 = player2.GetStream();
+		using var reader1 = new StreamReader(stream1);
+		using var writer1 = new StreamWriter(stream1) { AutoFlush = true };
+		using var reader2 = new StreamReader(stream2);
+		using var writer2 = new StreamWriter(stream2) { AutoFlush = true };
 
-		public GameSession(TcpClient p1, TcpClient p2)
+		await writer1.WriteLineAsync("white");
+		await writer2.WriteLineAsync("black");
+
+		string? join1 = await reader1.ReadLineAsync();
+		string? join2 = await reader2.ReadLineAsync();
+
+		if (join1 == null || join2 == null)
 		{
-			player1 = p1;
-			player2 = p2;
+			await writer1.WriteLineAsync("Opponent failed to join.");
+			await writer2.WriteLineAsync("Opponent failed to join.");
+			logger.Warning("Opponent failed to join.");
+			return;
 		}
 
-		public async Task RunAsync()
+		playerWhite = ExtractNameFromJoin(join1);
+		playerBlack = ExtractNameFromJoin(join2);
+
+		logger.Info($"Game started: {playerWhite} (white) vs {playerBlack} (black)");
+
+		await writer1.WriteLineAsync(JsonSerializer.Serialize(new CustomMessage
 		{
-			using var stream1 = player1.GetStream();
-			using var stream2 = player2.GetStream();
-			using var reader1 = new StreamReader(stream1);
-			using var writer1 = new StreamWriter(stream1) { AutoFlush = true };
-			using var reader2 = new StreamReader(stream2);
-			using var writer2 = new StreamWriter(stream2) { AutoFlush = true };
+			Type = MessageType.JOIN,
+			Payload = playerBlack
+		}));
 
-			await writer1.WriteLineAsync("white");
-			await writer2.WriteLineAsync("black");
+		await writer2.WriteLineAsync(JsonSerializer.Serialize(new CustomMessage
+		{
+			Type = MessageType.JOIN,
+			Payload = playerWhite
+		}));
 
-			string? join1 = await reader1.ReadLineAsync();
-			string? join2 = await reader2.ReadLineAsync();
+		var cts = new CancellationTokenSource();
 
-			if (join1 == null || join2 == null)
-			{
-				await writer1.WriteLineAsync("Opponent failed to join.");
-				await writer2.WriteLineAsync("Opponent failed to join.");
-				return;
-			}
+		var task1 = ListenToPlayer(reader1, writer2, true, cts.Token);
+		var task2 = ListenToPlayer(reader2, writer1, false, cts.Token);
 
-			playerWhite = ExtractNameFromJoin(join1);
-			playerBlack = ExtractNameFromJoin(join2);
+		await Task.WhenAny(task1, task2);
+		cts.Cancel();
 
-			await writer1.WriteLineAsync(JsonSerializer.Serialize(new CustomMessage
-			{
-				Type = MessageType.JOIN,
-				Payload = playerBlack
-			}));
+		await SaveGameHistoryAsync();
 
-			await writer2.WriteLineAsync(JsonSerializer.Serialize(new CustomMessage
-			{
-				Type = MessageType.JOIN,
-				Payload = playerWhite
-			}));
+		logger.Info($"Game session ended: {playerWhite} vs {playerBlack}");
 
-			var cts = new CancellationTokenSource();
+		player1.Close();
+		player2.Close();
+	}
 
-			var task1 = ListenToPlayer(reader1, writer2, true, cts.Token);
-			var task2 = ListenToPlayer(reader2, writer1, false, cts.Token);
-
-			await Task.WhenAny(task1, task2);
-			cts.Cancel();
-
-			await SaveGameHistoryAsync();
-
-			player1.Close();
-			player2.Close();
+	private string ExtractNameFromJoin(string joinMessage)
+	{
+		try
+		{
+			var message = JsonSerializer.Deserialize<CustomMessage>(joinMessage);
+			return message?.Payload ?? "Unknown";
 		}
-
-		private string ExtractNameFromJoin(string? json)
+		catch (Exception ex)
 		{
-			try
-			{
-				var msg = JsonSerializer.Deserialize<CustomMessage>(json);
-				if (msg?.Type == MessageType.JOIN && !string.IsNullOrEmpty(msg.Payload))
-					return msg.Payload;
-			}
-			catch { }
-
-			return "Невідомий";
+			logger.Error("Failed to extract name from join message: " + ex.Message);
+			return "Unknown";
 		}
+	}
 
-		private async Task ListenToPlayer(StreamReader reader, StreamWriter opponentWriter, bool isWhite, CancellationToken token)
+	private async Task ListenToPlayer(StreamReader reader, StreamWriter opponentWriter, bool isWhite, CancellationToken token)
+	{
+		string playerColor = isWhite ? "White" : "Black";
+
+		try
 		{
-			try
+			while (!token.IsCancellationRequested)
 			{
-				string color = isWhite ? "white" : "black";
+				var line = await reader.ReadLineAsync();
+				if (line == null) break;
 
-				while (!token.IsCancellationRequested)
+				var message = JsonSerializer.Deserialize<CustomMessage>(line);
+				if (message == null) continue;
+
+				if (message.Type == MessageType.MOVE)
 				{
-					string? msg = await reader.ReadLineAsync();
-					if (msg == null)
-					{
-						await SendLeaveMessage(opponentWriter);
-						break;
-					}
-
-					var deserialized = JsonSerializer.Deserialize<CustomMessage>(msg);
-					if (deserialized != null && deserialized.Type == MessageType.MOVE)
-					{
-						ParseMove(deserialized.Payload, color);
-					}
-
-					await opponentWriter.WriteLineAsync(msg);
+					ParseMove(message.Payload, playerColor);
 				}
-			}
-			catch (Exception ex)
-			{
-				Console.WriteLine($"Connection error: {ex.Message}");
-				await SendLeaveMessage(opponentWriter);
+
+				await opponentWriter.WriteLineAsync(line);
 			}
 		}
-
-		private void ParseMove(string move, string playerColor)
+		catch (Exception ex)
 		{
-			try
-			{
-				var parts = move.Split(':');
-				var from = parts[0].Split(',');
-				var to = parts[1].Split(',');
-
-				var start = new Position
-				{
-					X = int.Parse(from[0]),
-					Y = int.Parse(from[1])
-				};
-				var end = new Position
-				{
-					X = int.Parse(to[0]),
-					Y = int.Parse(to[1])
-				};
-
-				moveHistory.Add(new MoveRecord
-				{
-					From = start,
-					To = end,
-					Timestamp = DateTime.UtcNow,
-					PlayerColor = playerColor
-				});
-			}
-			catch
-			{
-				Console.WriteLine("Помилка при збереженні ходу.");
-			}
+			logger.Error($"{playerColor} player error: {ex.Message}");
 		}
-
-
-		private async Task SendLeaveMessage(StreamWriter writer)
+		finally
 		{
-			var leaveMsg = new CustomMessage
+			await SendLeaveMessage(opponentWriter);
+			logger.Warning($"{playerColor} player disconnected.");
+		}
+	}
+
+	private async Task SendLeaveMessage(StreamWriter writer)
+	{
+		try
+		{
+			var message = new CustomMessage { Type = MessageType.LEAVE, Payload = "" };
+			await writer.WriteLineAsync(JsonSerializer.Serialize(message));
+		}
+		catch (Exception ex)
+		{
+			logger.Error("Failed to send LEAVE message: " + ex.Message);
+		}
+	}
+
+	private void ParseMove(string move, string playerColor)
+	{
+		try
+		{
+			var parts = move.Split(':');
+			var from = parts[0].Split(',');
+			var to = parts[1].Split(',');
+
+			var start = new Position
 			{
-				Type = MessageType.LEAVE,
-				Payload = "Opponent"
+				X = int.Parse(from[0]),
+				Y = int.Parse(from[1])
+			};
+			var end = new Position
+			{
+				X = int.Parse(to[0]),
+				Y = int.Parse(to[1])
 			};
 
-			string json = JsonSerializer.Serialize(leaveMsg);
-
-			try
+			moveHistory.Add(new MoveRecord
 			{
-				await writer.WriteLineAsync(json);
-			}
-			catch { }
-		}
+				From = start,
+				To = end,
+				Timestamp = DateTime.UtcNow,
+				PlayerColor = playerColor
+			});
 
-		private async Task SaveGameHistoryAsync()
+			logger.Info($"{playerColor} move: {start.X},{start.Y} → {end.X},{end.Y}");
+		}
+		catch (Exception ex)
+		{
+			logger.Error("Error parsing move: " + ex.Message);
+		}
+	}
+
+	private async Task SaveGameHistoryAsync()
+	{
+		try
 		{
 			var record = new GameHistoryRecord
 			{
@@ -186,9 +193,13 @@ namespace ChessServer
 			string path = Path.Combine(dir, fileName);
 
 			string json = JsonSerializer.Serialize(record, new JsonSerializerOptions { WriteIndented = true });
-
 			await File.WriteAllTextAsync(path, json);
-			Console.WriteLine($"Game saved to: {path}");
+
+			logger.Info($"Game history saved: {path}");
+		}
+		catch (Exception ex)
+		{
+			logger.Error("Error saving game history: " + ex.Message);
 		}
 	}
 }

@@ -40,7 +40,9 @@ namespace ChessGame.Classes
 					g.DrawRectangle(Pens.Black, col * _cellSize, row * _cellSize, _cellSize, _cellSize);
 				}
 			}
+
 		}
+
 
 		private void DrawCellBackground(Graphics g, int row, int col, Piece[,] board)
 		{

@@ -9,15 +9,21 @@ namespace ChessServer
 {
 	public class Server
 	{
+		private readonly Logger logger;
 		private TcpListener listener;
 		private ConcurrentQueue<TcpClient> waitingClients = new();
 		private bool isRunning = true;
+
+		public Server(Logger logger)
+		{
+			this.logger = logger;
+		}
 
 		public void Start(int port)
 		{
 			listener = new TcpListener(IPAddress.Any, port);
 			listener.Start();
-			Console.WriteLine($"Server started on port {port}.");
+			logger.Info($"Server started on port {port}.");
 
 			Task.Run(() => MonitorWaitingClients());
 
@@ -26,14 +32,14 @@ namespace ChessServer
 				while (isRunning)
 				{
 					TcpClient client = listener.AcceptTcpClient();
-					Console.WriteLine("New client connected.");
+					logger.Info("New client connected.");
 					waitingClients.Enqueue(client);
 					TryStartGame();
 				}
 			}
 			catch (SocketException) when (!isRunning)
 			{
-				Console.WriteLine("Server stopped.");
+				logger.Info("Server stopped.");
 			}
 		}
 
@@ -41,6 +47,7 @@ namespace ChessServer
 		{
 			isRunning = false;
 			listener.Stop();
+			logger.Info("Server stopped manually.");
 		}
 
 		private void TryStartGame()
@@ -52,13 +59,13 @@ namespace ChessServer
 				{
 					if (IsClientConnected(client1) && IsClientConnected(client2))
 					{
-						Console.WriteLine("Starting new game session.");
-						var session = new GameSession(client1, client2);
+						logger.Info("Starting new game session.");
+						var session = new GameSession(client1, client2, logger);
 						Task.Run(() => session.RunAsync());
 					}
 					else
 					{
-						Console.WriteLine("Discarded disconnected clients.");
+						logger.Warning("Discarded disconnected clients.");
 						CloseClientIfNotNull(client1);
 						CloseClientIfNotNull(client2);
 					}
@@ -70,7 +77,8 @@ namespace ChessServer
 		{
 			while (isRunning)
 			{
-				await Task.Delay(5000);
+				await Task.Delay(5000); 
+
 				var newQueue = new ConcurrentQueue<TcpClient>();
 
 				while (waitingClients.TryDequeue(out var client))

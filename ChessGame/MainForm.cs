@@ -77,6 +77,7 @@ namespace ChessGame
 			loadingLabel.Visible = false;
 			playerName_label.Text = "Ïðèâ³ò, " + _userName;
 			infoPanel.Visible = true;
+			player_side_label.Text = _networkClient.IsLocalPlayerWhite ? "Á³ë³" : "×îðí³";
 		}
 		private async void AnimateLoadingLabel()
 		{
@@ -107,6 +108,8 @@ namespace ChessGame
 
 		}
 
+
+
 		private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
 		{
 			_cts.Cancel();
@@ -117,6 +120,9 @@ namespace ChessGame
 				_networkClient.Disconnect();
 		}
 
-
+		private void btn_exit_Click(object sender, EventArgs e)
+		{
+			this.Close();
+		}
 	}
 }
