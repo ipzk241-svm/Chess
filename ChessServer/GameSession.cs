@@ -2,8 +2,8 @@
 using System;
 using System.IO;
 using System.Net.Sockets;
-using System.Net.WebSockets;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace ChessServer
@@ -31,8 +31,15 @@ namespace ChessServer
 			await writer1.WriteLineAsync("white");
 			await writer2.WriteLineAsync("black");
 
-			string? join1 = await reader1.ReadLineAsync(); 
-			string? join2 = await reader2.ReadLineAsync(); 
+			string? join1 = await reader1.ReadLineAsync();
+			string? join2 = await reader2.ReadLineAsync();
+
+			if (join1 == null || join2 == null)
+			{
+				await writer1.WriteLineAsync("Opponent failed to join.");
+				await writer2.WriteLineAsync("Opponent failed to join.");
+				return;
+			}
 
 			string name1 = ExtractNameFromJoin(join1);
 			string name2 = ExtractNameFromJoin(join2);
@@ -49,10 +56,13 @@ namespace ChessServer
 				Payload = name1
 			}));
 
-			var task1 = ListenToPlayer(reader1, writer2, writer1);
-			var task2 = ListenToPlayer(reader2, writer1, writer2);
+			var cts = new CancellationTokenSource();
+
+			var task1 = ListenToPlayer(reader1, writer2, cts.Token);
+			var task2 = ListenToPlayer(reader2, writer1, cts.Token);
 
 			await Task.WhenAny(task1, task2);
+			cts.Cancel();
 
 			player1.Close();
 			player2.Close();
@@ -71,12 +81,11 @@ namespace ChessServer
 			return "Невідомий";
 		}
 
-
-		private async Task ListenToPlayer(StreamReader reader, StreamWriter opponentWriter, StreamWriter selfWriter)
+		private async Task ListenToPlayer(StreamReader reader, StreamWriter opponentWriter, CancellationToken token)
 		{
 			try
 			{
-				while (true)
+				while (!token.IsCancellationRequested)
 				{
 					string? msg = await reader.ReadLineAsync();
 					if (msg == null)
@@ -97,17 +106,19 @@ namespace ChessServer
 
 		private async Task SendLeaveMessage(StreamWriter writer)
 		{
-			var leaveMsg = new
+			var leaveMsg = new CustomMessage
 			{
 				Type = MessageType.LEAVE,
 				Payload = "Opponent"
 			};
+
 			string json = JsonSerializer.Serialize(leaveMsg);
+
 			try
 			{
 				await writer.WriteLineAsync(json);
 			}
-			catch {}
+			catch { }
 		}
 	}
 }

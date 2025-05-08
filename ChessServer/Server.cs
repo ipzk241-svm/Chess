@@ -21,14 +21,26 @@ namespace ChessServer
 
 			Task.Run(() => MonitorWaitingClients());
 
-			while (isRunning)
+			try
 			{
-				TcpClient client = listener.AcceptTcpClient();
-				Console.WriteLine("New client connected.");
-
-				waitingClients.Enqueue(client);
-				TryStartGame();
+				while (isRunning)
+				{
+					TcpClient client = listener.AcceptTcpClient();
+					Console.WriteLine("New client connected.");
+					waitingClients.Enqueue(client);
+					TryStartGame();
+				}
 			}
+			catch (SocketException) when (!isRunning)
+			{
+				Console.WriteLine("Server stopped.");
+			}
+		}
+
+		public void Stop()
+		{
+			isRunning = false;
+			listener.Stop();
 		}
 
 		private void TryStartGame()
@@ -58,8 +70,7 @@ namespace ChessServer
 		{
 			while (isRunning)
 			{
-				await Task.Delay(5000); 
-
+				await Task.Delay(5000);
 				var newQueue = new ConcurrentQueue<TcpClient>();
 
 				while (waitingClients.TryDequeue(out var client))

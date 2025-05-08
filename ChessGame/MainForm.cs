@@ -44,6 +44,7 @@ namespace ChessGame
 					InitializeLabels();
 				});
 			}
+
 			catch (Exception ex)
 			{
 				this.SafeInvoke(() =>
