@@ -14,6 +14,8 @@ namespace ChessGame
 		private BoardPanel _boardPanel;
 		private NetworkClient _networkClient;
 		private bool _connected = false;
+		private CancellationTokenSource _cts = new();
+
 
 		public MainForm(string userName)
 		{
@@ -32,10 +34,20 @@ namespace ChessGame
 				await Task.Run(() =>
 				{
 					GameControler.Instance.StartGame();
+
+					if (_cts.Token.IsCancellationRequested) return;
+
 					_networkClient = new NetworkClient("127.0.0.1", 5000, _userName);
-					_mediator = new GameMediator(GameControler.Instance, _boardPanel, _networkClient, () => this.Close());
+
+					if (_cts.Token.IsCancellationRequested)
+					{
+						_networkClient.Disconnect(); // підключився, але форму вже закрили
+						return;
+					}
+
+					_mediator = new GameMediator(GameControler.Instance, _boardPanel, _networkClient, () => this.SafeInvoke(Close));
 					_connected = true;
-				});
+				}, _cts.Token);
 
 				this.SafeInvoke(() =>
 				{
@@ -44,7 +56,9 @@ namespace ChessGame
 					InitializeLabels();
 				});
 			}
-
+			catch (OperationCanceledException)
+			{
+			}
 			catch (Exception ex)
 			{
 				this.SafeInvoke(() =>
@@ -55,6 +69,7 @@ namespace ChessGame
 				});
 			}
 		}
+
 
 
 		private void InitializeLabels()
@@ -94,11 +109,14 @@ namespace ChessGame
 
 		private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
 		{
+			_cts.Cancel();
+
 			if (_mediator != null)
 				_mediator.Disconnect();
 			else if (_connected && _networkClient != null)
 				_networkClient.Disconnect();
 		}
+
 
 	}
 }

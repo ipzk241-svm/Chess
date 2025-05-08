@@ -1,5 +1,6 @@
 ﻿using ChessClassLibrary;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net.Sockets;
 using System.Text.Json;
@@ -12,6 +13,10 @@ namespace ChessServer
 	{
 		private TcpClient player1;
 		private TcpClient player2;
+
+		private readonly List<MoveRecord> moveHistory = new();
+		private string playerWhite = "Білий";
+		private string playerBlack = "Чорний";
 
 		public GameSession(TcpClient p1, TcpClient p2)
 		{
@@ -41,28 +46,30 @@ namespace ChessServer
 				return;
 			}
 
-			string name1 = ExtractNameFromJoin(join1);
-			string name2 = ExtractNameFromJoin(join2);
+			playerWhite = ExtractNameFromJoin(join1);
+			playerBlack = ExtractNameFromJoin(join2);
 
 			await writer1.WriteLineAsync(JsonSerializer.Serialize(new CustomMessage
 			{
 				Type = MessageType.JOIN,
-				Payload = name2
+				Payload = playerBlack
 			}));
 
 			await writer2.WriteLineAsync(JsonSerializer.Serialize(new CustomMessage
 			{
 				Type = MessageType.JOIN,
-				Payload = name1
+				Payload = playerWhite
 			}));
 
 			var cts = new CancellationTokenSource();
 
-			var task1 = ListenToPlayer(reader1, writer2, cts.Token);
-			var task2 = ListenToPlayer(reader2, writer1, cts.Token);
+			var task1 = ListenToPlayer(reader1, writer2, true, cts.Token);
+			var task2 = ListenToPlayer(reader2, writer1, false, cts.Token);
 
 			await Task.WhenAny(task1, task2);
 			cts.Cancel();
+
+			await SaveGameHistoryAsync();
 
 			player1.Close();
 			player2.Close();
@@ -81,10 +88,12 @@ namespace ChessServer
 			return "Невідомий";
 		}
 
-		private async Task ListenToPlayer(StreamReader reader, StreamWriter opponentWriter, CancellationToken token)
+		private async Task ListenToPlayer(StreamReader reader, StreamWriter opponentWriter, bool isWhite, CancellationToken token)
 		{
 			try
 			{
+				string color = isWhite ? "white" : "black";
+
 				while (!token.IsCancellationRequested)
 				{
 					string? msg = await reader.ReadLineAsync();
@@ -92,6 +101,12 @@ namespace ChessServer
 					{
 						await SendLeaveMessage(opponentWriter);
 						break;
+					}
+
+					var deserialized = JsonSerializer.Deserialize<CustomMessage>(msg);
+					if (deserialized != null && deserialized.Type == MessageType.MOVE)
+					{
+						ParseMove(deserialized.Payload, color);
 					}
 
 					await opponentWriter.WriteLineAsync(msg);
@@ -103,6 +118,40 @@ namespace ChessServer
 				await SendLeaveMessage(opponentWriter);
 			}
 		}
+
+		private void ParseMove(string move, string playerColor)
+		{
+			try
+			{
+				var parts = move.Split(':');
+				var from = parts[0].Split(',');
+				var to = parts[1].Split(',');
+
+				var start = new Position
+				{
+					X = int.Parse(from[0]),
+					Y = int.Parse(from[1])
+				};
+				var end = new Position
+				{
+					X = int.Parse(to[0]),
+					Y = int.Parse(to[1])
+				};
+
+				moveHistory.Add(new MoveRecord
+				{
+					From = start,
+					To = end,
+					Timestamp = DateTime.UtcNow,
+					PlayerColor = playerColor
+				});
+			}
+			catch
+			{
+				Console.WriteLine("Помилка при збереженні ходу.");
+			}
+		}
+
 
 		private async Task SendLeaveMessage(StreamWriter writer)
 		{
@@ -119,6 +168,27 @@ namespace ChessServer
 				await writer.WriteLineAsync(json);
 			}
 			catch { }
+		}
+
+		private async Task SaveGameHistoryAsync()
+		{
+			var record = new GameHistoryRecord
+			{
+				PlayerWhite = playerWhite,
+				PlayerBlack = playerBlack,
+				Moves = moveHistory
+			};
+
+			var dir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "GameHistory");
+			Directory.CreateDirectory(dir);
+
+			string fileName = $"{DateTime.Now:yyyy-MM-dd_HH-mm-ss}_{playerWhite}_vs_{playerBlack}.json";
+			string path = Path.Combine(dir, fileName);
+
+			string json = JsonSerializer.Serialize(record, new JsonSerializerOptions { WriteIndented = true });
+
+			await File.WriteAllTextAsync(path, json);
+			Console.WriteLine($"Game saved to: {path}");
 		}
 	}
 }
