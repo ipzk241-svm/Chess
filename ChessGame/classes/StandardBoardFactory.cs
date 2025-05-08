@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ChessGame.classes
+namespace ChessGame.Classes
 {
 	public class StandardBoardFactory : IBoardFactory
 	{

@@ -1,45 +1,34 @@
 ﻿using ChessClassLibrary;
 using ChessGame.Classes;
+using ChessGame.Classes.Pieces;
+using ChessGame.interfaces;
 using System;
 using System.IO;
 using System.Net.Sockets;
 using System.Text.Json;
-using System.Windows.Forms;
 using System.Threading;
-using ChessGame.classes;
+using System.Windows.Forms;
 
 namespace ChessGame
 {
-	public class NetworkClient
+	public class NetworkClient : INetworkClient
 	{
 		private TcpClient client;
 		private StreamReader reader;
 		private StreamWriter writer;
 		private Thread listenThread;
-		private BoardPanel boardPanel;
 		private Stream stream;
-		public string clientName;
+		public string ClientName { get; }
 		private string _opponentName;
-		public string opponentName
-		{
-			get => _opponentName;
-			set
-			{
-				_opponentName = value;
-				OpponentNameReceived?.Invoke(_opponentName);
-			}
-		}
 
 		public bool IsLocalPlayerWhite { get; set; }
-
 		public event Action<string> OpponentNameReceived;
 		public event Action<string> DisconnectAction;
+		public event Action<Position, Position> MoveReceived;
 
-		public NetworkClient(string host, int port, BoardPanel panel, string clientName)
+		public NetworkClient(string host, int port, string clientName)
 		{
-			this.boardPanel = panel;
-			this.clientName = clientName;
-
+			ClientName = clientName;
 			ConnectToServer(host, port);
 			SendJoinMessage();
 			StartListening();
@@ -68,7 +57,7 @@ namespace ChessGame
 			var msg = new CustomMessage
 			{
 				Type = MessageType.JOIN,
-				Payload = clientName
+				Payload = ClientName
 			};
 			string json = JsonSerializer.Serialize(msg);
 			writer.WriteLine(json);
@@ -98,11 +87,11 @@ namespace ChessGame
 			}
 			catch
 			{
-				boardPanel.SafeInvoke(() => DisconnectAction?.Invoke(opponentName));
+				DisconnectAction?.Invoke(_opponentName);
 			}
 		}
 
-		public async void SendMove(Position from, Position to)
+		public void SendMove(Position from, Position to)
 		{
 			var msg = new CustomMessage
 			{
@@ -110,7 +99,7 @@ namespace ChessGame
 				Payload = $"{from.X},{from.Y}:{to.X},{to.Y}"
 			};
 			string json = JsonSerializer.Serialize(msg);
-			await writer.WriteLineAsync(json);
+			writer.WriteLineAsync(json).GetAwaiter().GetResult();
 		}
 
 		private void HandleIncomingMessage(CustomMessage msg)
@@ -118,7 +107,8 @@ namespace ChessGame
 			switch (msg.Type)
 			{
 				case MessageType.JOIN:
-					opponentName = msg.Payload;
+					_opponentName = msg.Payload;
+					OpponentNameReceived?.Invoke(_opponentName);
 					break;
 
 				case MessageType.MOVE:
@@ -126,10 +116,7 @@ namespace ChessGame
 					break;
 
 				case MessageType.LEAVE:
-					boardPanel.SafeInvoke(() =>
-					{
-						DisconnectAction?.Invoke(opponentName);
-					});
+					DisconnectAction?.Invoke(_opponentName);
 					break;
 			}
 		}
@@ -145,31 +132,26 @@ namespace ChessGame
 				var start = new Position(int.Parse(from[0]), int.Parse(from[1]));
 				var end = new Position(int.Parse(to[0]), int.Parse(to[1]));
 
-				GameControler.Instance.MovePieceFromNetwork(start, end);
-
-				boardPanel.SafeInvoke(() => boardPanel.Invalidate());
+				MoveReceived?.Invoke(start, end);
 			}
 			catch
 			{
-				boardPanel.SafeInvoke(() =>
-				{
-					MessageBox.Show("Помилка при обробці ходу.", "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
-				});
+				MessageBox.Show("Помилка при обробці ходу.", "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
 			}
 		}
 
-		public async void SendLeave()
+		public void SendLeave()
 		{
 			if (writer == null) return;
 
 			var msg = new CustomMessage
 			{
 				Type = MessageType.LEAVE,
-				Payload = clientName
+				Payload = ClientName
 			};
 
 			string json = JsonSerializer.Serialize(msg);
-			await writer.WriteLineAsync(json);
+			writer.WriteLineAsync(json).GetAwaiter().GetResult();
 		}
 
 		public void Disconnect()

@@ -1,19 +1,20 @@
 ﻿using ChessGame.Classes.Pieces;
+using ChessGame.interfaces;
 using System;
 using System.Windows.Forms;
 
 namespace ChessGame.Classes
 {
-	public class GameControler
+	public class GameControler : IGameControler
 	{
 		private const int BoardSize = 8;
+		private static GameControler _instance;
 		private readonly Piece[,] _board;
 		private bool _isWhiteTurn;
 		private Position _whiteKingPos;
 		private Position _blackKingPos;
 
-		private static readonly Lazy<GameControler> _instance = new Lazy<GameControler>(() => new GameControler());
-		public static GameControler Instance => _instance.Value;
+		public static GameControler Instance => _instance ??= new GameControler();
 
 		public Piece[,] Board => _board;
 		public bool IsWhiteTurn
@@ -27,7 +28,7 @@ namespace ChessGame.Classes
 		}
 		public (Position from, Position to)? LastMove { get; set; }
 		public bool GameEnded { get; private set; }
-		public Action OnSideChanged { get; set; }
+		public event Action OnSideChanged;
 
 		private GameControler()
 		{

@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Windows.Forms;
-namespace ChessGame.classes
+namespace ChessGame.Classes
 {
 	public static class ControlExtensions
 	{
