@@ -12,6 +12,10 @@ namespace ChessGame.Classes
 		private readonly int _cellSize;
 		private IGameMediator _mediator;
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="BoardPanel"/> class.
+		/// </summary>
+		/// <param name="cellSize">The size of each cell on the board in pixels. Default is 60.</param>
 		public BoardPanel(int cellSize = 60)
 		{
 			_cellSize = cellSize;
@@ -22,9 +26,17 @@ namespace ChessGame.Classes
 			this.MouseClick += BoardPanel_MouseClick;
 		}
 
+		/// <summary>
+		/// Sets the mediator that handles game logic for this board panel.
+		/// </summary>
+		/// <param name="mediator">The game mediator responsible for managing game state and logic.</param>
+		/// <exception cref="ArgumentNullException">Thrown when the mediator is null.</exception>
 		public void SetMediator(IGameMediator mediator) =>
 			_mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
 
+		/// <summary>
+		/// Handles the painting of the chess board, rendering cells and pieces.
+		/// </summary>
 		private void Board_Paint(object sender, PaintEventArgs e)
 		{
 			Graphics g = e.Graphics;
@@ -40,10 +52,15 @@ namespace ChessGame.Classes
 					g.DrawRectangle(Pens.Black, col * _cellSize, row * _cellSize, _cellSize, _cellSize);
 				}
 			}
-
 		}
 
-
+		/// <summary>
+		/// Draws the background of a cell, applying highlights based on the game state (e.g., selected, check, last move).
+		/// </summary>
+		/// <param name="g">The graphics context used for drawing.</param>
+		/// <param name="row">The row index of the cell (0 to 7).</param>
+		/// <param name="col">The column index of the cell (0 to 7).</param>
+		/// <param name="board">The 2D array representing the chess board with pieces.</param>
 		private void DrawCellBackground(Graphics g, int row, int col, Piece[,] board)
 		{
 			Brush backgroundBrush = (row + col) % 2 == 0 ? Brushes.White : Brushes.Gray;
@@ -63,6 +80,13 @@ namespace ChessGame.Classes
 			g.FillRectangle(backgroundBrush, cellRect);
 		}
 
+		/// <summary>
+		/// Determines if the king at the specified position is in check.
+		/// </summary>
+		/// <param name="row">The row index of the cell (0 to 7).</param>
+		/// <param name="col">The column index of the cell (0 to 7).</param>
+		/// <param name="board">The 2D array representing the chess board with pieces.</param>
+		/// <returns>True if the king at the position is in check; otherwise, false.</returns>
 		private bool IsKingInCheck(int row, int col, Piece[,] board)
 		{
 			return board[row, col] is King &&
@@ -70,6 +94,13 @@ namespace ChessGame.Classes
 				   _mediator.IsKingInCheck(board[row, col].IsWhite);
 		}
 
+		/// <summary>
+		/// Returns the appropriate brush for highlighting possible move targets of a selected piece.
+		/// </summary>
+		/// <param name="row">The row index of the cell (0 to 7).</param>
+		/// <param name="col">The column index of the cell (0 to 7).</param>
+		/// <param name="board">The 2D array representing the chess board with pieces.</param>
+		/// <returns>A brush used to highlight the move target (e.g., green for empty cells, red for captures).</returns>
 		private Brush GetMoveHighlightBrush(int row, int col, Piece[,] board)
 		{
 			Position pos = new Position(col, row);
@@ -79,6 +110,13 @@ namespace ChessGame.Classes
 				   new SolidBrush(Color.LightGreen);
 		}
 
+		/// <summary>
+		/// Draws the icon of a piece at the specified cell, applying rotation if needed.
+		/// </summary>
+		/// <param name="g">The graphics context used for drawing.</param>
+		/// <param name="row">The row index of the cell (0 to 7).</param>
+		/// <param name="col">The column index of the cell (0 to 7).</param>
+		/// <param name="board">The 2D array representing the chess board with pieces.</param>
 		private void DrawPieceIcon(Graphics g, int row, int col, Piece[,] board)
 		{
 			if (board[row, col] == null) return;
@@ -92,6 +130,11 @@ namespace ChessGame.Classes
 			g.DrawImage(icon, col * _cellSize + 5, row * _cellSize + 5, 50, 50);
 		}
 
+		/// <summary>
+		/// Handles mouse clicks on the board to select or move pieces.
+		/// </summary>
+		/// <param name="sender">The source of the event.</param>
+		/// <param name="e">The <see cref="MouseEventArgs"/> containing the mouse click information.</param>
 		private void BoardPanel_MouseClick(object sender, MouseEventArgs e)
 		{
 			if (!_mediator.CanProcessClick(_mediator.GetIsWhiteTurn())) return;
@@ -113,6 +156,10 @@ namespace ChessGame.Classes
 			Invalidate();
 		}
 
+		/// <summary>
+		/// Calculates the row and column of the cell based on the mouse click position.
+		/// </summary>
+		/// <returns>A tuple containing the row and column indices of the clicked cell.</returns>
 		private (int row, int col) CalculateClickPosition(MouseEventArgs e)
 		{
 			return _mediator.ShouldRotateIcons()
@@ -120,6 +167,12 @@ namespace ChessGame.Classes
 				: (e.Y / _cellSize, e.X / _cellSize);
 		}
 
+		/// <summary>
+		/// Checks if the specified row and column are within the valid boundaries of the chess board.
+		/// </summary>
+		/// <param name="row">The row index to check (0 to 7).</param>
+		/// <param name="col">The column index to check (0 to 7).</param>
+		/// <returns>True if the position is valid; otherwise, false.</returns>
 		private bool IsValidPosition(int row, int col)
 		{
 			return row >= 0 && row < BoardSize && col >= 0 && col < BoardSize;

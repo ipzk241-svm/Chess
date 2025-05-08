@@ -121,6 +121,7 @@ namespace ChessGame
 			}
 		}
 
+
 		private void HandleMove(string move)
 		{
 			try
