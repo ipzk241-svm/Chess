@@ -170,3 +170,7 @@ The project incorporates several refactoring techniques to improve code structur
 - **Used in**: Various classes (e.g., `GameControler`, `NetworkClient`, `BoardPanel`).
   - **Purpose**: Improves code readability and self-documentation by using meaningful names, reducing the need for comments.
   - **Example**: ListenForMoves in NetworkClient clearly indicates asynchronous message listening, and MoveReceived event describes its purpose.
+
+## 🤝Contributions
+Pull requests are welcome.
+Happy refactoring, noble forker! May your pull requests be clean, your tests green, and your checkmates serene. If you get stuck, ping the repo with an issue, and we'll debug like it's a chess world championship. 🏆
