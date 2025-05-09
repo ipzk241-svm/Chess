@@ -1,4 +1,5 @@
-﻿using ChessGame.Classes.Pieces;
+﻿using ChessClassLibrary;
+using ChessGame.Classes.Pieces;
 using ChessGame.interfaces;
 using System;
 using System.Drawing;

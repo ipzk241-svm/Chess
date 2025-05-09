@@ -1,4 +1,5 @@
-﻿using System.Drawing;
+﻿using ChessClassLibrary;
+using System.Drawing;
 
 namespace ChessGame.Classes.Pieces
 {

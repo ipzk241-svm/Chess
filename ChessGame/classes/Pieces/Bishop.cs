@@ -1,4 +1,5 @@
-﻿using ChessGame.Classes;
+﻿using ChessClassLibrary;
+using ChessGame.Classes;
 using ChessGame.Classes.Pieces;
 using System.Xml.Linq;
 

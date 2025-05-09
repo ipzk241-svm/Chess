@@ -1,4 +1,5 @@
-﻿using ChessGame.Classes;
+﻿using ChessClassLibrary;
+using ChessGame.Classes;
 using ChessGame.Classes.Pieces;
 using System.Xml.Linq;
 
@@ -10,6 +11,7 @@ public class Queen : Piece
 		string imagePath = isWhite ? "assets/WhiteQueen.png" : "assets/BlackQueen.png";
 		Icon = Image.FromFile(imagePath);
 	}
+
 
 	public override bool IsValidMove(Position endPos, Piece[,] board, bool isCheckEvaluation = false)
 	{

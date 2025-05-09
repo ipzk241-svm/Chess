@@ -149,15 +149,15 @@ public class GameSession
 			var to = parts[1].Split(',');
 
 			var start = new Position
-			{
-				X = int.Parse(from[0]),
-				Y = int.Parse(from[1])
-			};
+			(
+				int.Parse(from[0]),
+				int.Parse(from[1])
+			);
 			var end = new Position
-			{
-				X = int.Parse(to[0]),
-				Y = int.Parse(to[1])
-			};
+			(
+				int.Parse(to[0]),
+				int.Parse(to[1])
+			);
 
 			moveHistory.Add(new MoveRecord
 			{
