@@ -78,7 +78,7 @@ After a game ends, the move history is saved in the `GameHistory/` directory as 
 - Player sides (white or black)
 - List of moves with coordinates, timestamps, and the side that made the move
 
-## 🛠️ Configuration
+## ⚙️ Configuration
 
 - **Server Port**: The default port is `9000`. To change it, modify the port number in the server code (`ChessServer` project).
 - **ClientConnection**: For now client connection is hardcoded but in the future will be fixed. To change it, modify the connection string in the client code (`ChessGame` project).
@@ -112,7 +112,7 @@ The project employs several design patterns to ensure modularity, maintainabilit
   - **Purpose**: Enables components to react to events like turn changes, opponent connections, or disconnections without tight coupling.
   - **Implementation**: Events like `OnSideChanged` (in `GameControler`) and `OpponentNameReceived`, `MoveReceived`, `DisconnectAction` (in `NetworkClient`) notify subscribers to update the UI or game state.
 
-  ## 🧩 Programming Principles
+## 🧩 Programming Principles
 
 The project adheres to several programming principles to ensure clean, maintainable, and efficient code:
 
