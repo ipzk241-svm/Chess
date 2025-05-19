@@ -2,6 +2,11 @@
 
 A console-based server and Windows Forms client for a two-player chess game over a local network. The project supports multiple concurrent game sessions with logging and move history saved in JSON files.
 
+## 🔢 Lines of Code
+
+- **Number of lines of code**:
+  ![lines](screenshots/codeLines.jpg)
+
 ## 📦 Contents
 
 - **ChessClassLibrary/**: Shared classes including `Position`, `MoveRecord`, `GameHistoryRecord`, and more.
@@ -58,13 +63,13 @@ A console-based server and Windows Forms client for a two-player chess game over
 
 ## 📸 Screenshots
 
-- **Chess Board**: 
+- **Chess Board**:
   ![Chess Board](screenshots/chess_board.jpg)
 
-- **Entry Form**: 
+- **Entry Form**:
   ![Enter Form](screenshots/enter_form.jpg)
 
-- **Loading Animation**: 
+- **Loading Animation**:
   ![Loading Animation](screenshots/loading_animation.jpg)
 
 - **Active game**:
@@ -88,26 +93,31 @@ After a game ends, the move history is saved in the `GameHistory/` directory as 
 The project employs several design patterns to ensure modularity, maintainability, and scalability:
 
 - **Singleton**:
+
   - **Used in**: `GameControler` class.
   - **Purpose**: Ensures a single instance of the game controller manages the chessboard, turn state, and king positions across the client application, preventing state inconsistencies.
   - **Implementation**: A private constructor and a static `Instance` property provide global access to the game state.
 
 - **Factory Method**:
+
   - **Used in**: `PieceFactory` and `StandardBoardFactory` classes.
   - **Purpose**: Encapsulates the creation of chess pieces (`Pawn`, `Rook`, `Knight`, `Bishop`, `Queen`, `King`), allowing the `GameControler` to initialize the game without directly instantiating piece classes or board setups.
   - **Implementation**: `PieceFactory's` `CreatePiece` method returns a piece based on the `PieceType` enum, while `StandardBoardFactory's` `CreateInitialBoard` sets up the standard chessboard layout using `PieceFactory`, simplifying piece and board creation and enabling future extensions (e.g., custom board setups).
 
 - **Mediator**:
+
   - **Used in**: `GameMediator` class.
   - **Purpose**: Reduces coupling between the game logic (`IGameControler`), UI (`IBoardPanel`), and network (`INetworkClient`) by coordinating their interactions, such as handling moves and board updates.
   - **Implementation**: Centralizes logic for move validation, piece selection, and network communication, ensuring seamless integration of components.
 
 - **Builder**:
+
   - **Used in**: `Logger` class.
   - **Purpose**: Provides a flexible way to configure the server logger’s file path, console output, and minimum log level without overloading the constructor.
   - **Implementation**: The `LoggerBuilder` class allows step-by-step configuration before creating a `Logger` instance, improving configurability.
 
 - **Observer**:
+
   - **Used in**: `GameControler`, `NetworkClient`, and `MainForm`.
   - **Purpose**: Enables components to react to events like turn changes, opponent connections, or disconnections without tight coupling.
   - **Implementation**: Events like `OnSideChanged` (in `GameControler`) and `OpponentNameReceived`, `MoveReceived`, `DisconnectAction` (in `NetworkClient`) notify subscribers to update the UI or game state.
@@ -117,6 +127,7 @@ The project employs several design patterns to ensure modularity, maintainabilit
 The project adheres to several programming principles to ensure clean, maintainable, and efficient code:
 
 - **SOLID**:
+
   - **Single Responsibility Principle (SRP)**: Each class has a single responsibility, e.g., `GameControler` manages game logic, `BoardPanel` handles UI rendering, and `NetworkClient` deals with network communication.
   - **Open/Closed Principle (OCP)**: Classes like `Piece` are extensible (new piece types can be added) without modifying existing code, and interfaces (`IGameControler`, `IPieceFactory`) allow swapping implementations.
   - **Liskov Substitution Principle (LSP)**: Derived classes (`King`, `Queen`) can replace `Piece` without breaking functionality, ensuring consistent move validation.
@@ -124,9 +135,11 @@ The project adheres to several programming principles to ensure clean, maintaina
   - **Dependency Inversion Principle (DIP)**: High-level modules depend on abstractions (e.g., `GameMediator` uses `IGameControler`, `StandardBoardFactory` uses `IPieceFactory`), enhancing flexibility.
 
 - **DRY (Don't Repeat Yourself)**:
+
   - Code duplication is minimized by centralizing piece creation in `PieceFactory`, board initialization in `StandardBoardFactory`, and logging in `Logger`, ensuring reusable and maintainable code.
 
 - **KISS (Keep It Simple, Stupid)**:
+
   - The design is straightforward: classes have clear roles, move validation in `Piece` is minimal, and the server uses a simple queue for matchmaking, avoiding unnecessary complexity.
 
 - **YAGNI (You Aren't Gonna Need It)**:
@@ -137,31 +150,37 @@ The project adheres to several programming principles to ensure clean, maintaina
 The project incorporates several refactoring techniques to improve code structure, readability, and maintainability:
 
 - **Extract Method**:
+
   - **Used in**: `GameControler` (e.g., `IsKingInCheck`, `IsSquareUnderAttack`), `BoardPanel` (e.g., `DrawCellBackground`).
   - **Purpose**: Breaks down complex methods into smaller, reusable ones, improving readability and testability.
   - **Example**: `IsSquareUnderAttack` in `GameControler` isolates logic for checking if a position is under attack, used in multiple methods.
 
 - **Replace Conditional with Polymorphism**:
+
   - **Used in**: `Piece` and its derived classes (`King`, `Queen`, etc.).
   - **Purpose**: Eliminates conditional logic for move validation by delegating behavior to specific piece classes, enhancing extensibility.
   - **Example**: Each piece type implements `IsValidMove` differently, avoiding a large `switch` statement in a single method.
 
 - **Extract Class**:
+
   - **Used in**: `PieceFactory`, `StandardBoardFactory`, `Logger`, `GameMediator`.
   - **Purpose**: Moves related functionality into dedicated classes to reduce complexity and adhere to the Single Responsibility Principle.
   - **Example**: `StandardBoardFactory` extracts board initialization logic from `GameControler`, making the controller more focused.
 
 - **Move Method**:
+
   - **Used in**: `GameControler` to `StandardBoardFactory`, `NetworkClient`, `GameMediator`.
   - **Purpose**: Relocates methods to classes where they logically belong, improving cohesion.
   - **Example**: Board initialization moved from `GameControler.InitializeBoard` to `StandardBoardFactory.CreateInitialBoard`.
 
 - **Introduce Parameter Object**:
+
   - **Used in**: `Position` structure across multiple classes.
   - **Purpose**: Replaces multiple parameters (e.g., X and Y coordinates) with a single object, simplifying method signatures and improving semantics.
   - **Example**: `MovePieceFromNetwork` in `GameControler` uses `Position` instead of separate `int` coordinates.
 
 - **Replace Magic Numbers with Named Constants**:
+
   - **Used in**: `GameControler` (e.g., `BoardSize`), `BoardPanel` (e.g., `cellSize`).
   - **Purpose**: Replaces hard-coded numbers with named constants, enhancing readability and maintainability.
   - **Example**: `BoardSize = 8` in `GameControler` replaces the magic number 8 for board dimensions.
