@@ -83,7 +83,7 @@ After a game ends, the move history is saved in the `GameHistory/` directory as 
 - Player sides (white or black)
 - List of moves with coordinates, timestamps, and the side that made the move
 
-## 🛠️ Configuration
+## ⚙️ Configuration
 
 - **Server Port**: The default port is `9000`. To change it, modify the port number in the server code (`ChessServer` project).
 - **ClientConnection**: For now client connection is hardcoded but in the future will be fixed. To change it, modify the connection string in the client code (`ChessGame` project).
@@ -122,7 +122,7 @@ The project employs several design patterns to ensure modularity, maintainabilit
   - **Purpose**: Enables components to react to events like turn changes, opponent connections, or disconnections without tight coupling.
   - **Implementation**: Events like `OnSideChanged` (in `GameControler`) and `OpponentNameReceived`, `MoveReceived`, `DisconnectAction` (in `NetworkClient`) notify subscribers to update the UI or game state.
 
-  ## 🧩 Programming Principles
+## 🧩 Programming Principles
 
 The project adheres to several programming principles to ensure clean, maintainable, and efficient code:
 
@@ -189,3 +189,8 @@ The project incorporates several refactoring techniques to improve code structur
 - **Used in**: Various classes (e.g., `GameControler`, `NetworkClient`, `BoardPanel`).
   - **Purpose**: Improves code readability and self-documentation by using meaningful names, reducing the need for comments.
   - **Example**: ListenForMoves in NetworkClient clearly indicates asynchronous message listening, and MoveReceived event describes its purpose.
+
+## 🤝Contributions
+Pull requests are welcome.
+Happy refactoring, noble forker! May your pull requests be clean, your tests green, and your checkmates serene. If you get stuck, ping the repo with an issue, and we'll debug like it's a chess world championship. 🏆
+
