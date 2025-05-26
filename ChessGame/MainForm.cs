@@ -24,61 +24,74 @@ namespace ChessGame
 			_boardPanel = new BoardPanel();
 		}
 
-		private async void MainForm_Load(object sender, EventArgs e)
-		{
-			loadingLabel.SafeInvoke(() => loadingLabel.Visible = true);
-			AnimateLoadingLabel();
+        private async void MainForm_Load(object sender, EventArgs e)
+        {
+            loadingLabel.SafeInvoke(() => loadingLabel.Visible = true);
+            AnimateLoadingLabel();
 
-			try
-			{
-				await Task.Run(() =>
-				{
-					GameControler.Instance.StartGame();
+            try
+            {
+                await InitializeGameAsync();
+                InitializeUIAfterConnection();
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                HandleInitializationError(ex);
+            }
+        }
+        private async Task InitializeGameAsync()
+        {
+            await Task.Run(() =>
+            {
+                GameControler.Instance.StartGame();
 
-					if (_cts.Token.IsCancellationRequested) return;
+                if (_cts.Token.IsCancellationRequested)
+                    return;
 
-					_networkClient = new NetworkClient("127.0.0.1", 5000, _userName);
+                _networkClient = new NetworkClient("127.0.0.1", 5000, _userName);
 
-					if (_cts.Token.IsCancellationRequested)
-					{
-						_networkClient.Disconnect(); // підключився, але форму вже закрили
-						return;
-					}
+                if (_cts.Token.IsCancellationRequested)
+                {
+                    _networkClient.Disconnect(); // Підключення вже було, але форму закрили
+                    return;
+                }
 
-					_mediator = new GameMediator(GameControler.Instance, _boardPanel, _networkClient, () => this.SafeInvoke(Close));
-					_connected = true;
-				}, _cts.Token);
+                _mediator = new GameMediator(GameControler.Instance, _boardPanel, _networkClient, () => this.SafeInvoke(Close));
+                _connected = true;
+            }, _cts.Token);
+        }
 
-				this.SafeInvoke(() =>
-				{
-					ChessPanel.Controls.Add(_boardPanel);
-					SetupEventHandlers();
-					InitializeLabels();
-				});
-			}
-			catch (OperationCanceledException)
-			{
-			}
-			catch (Exception ex)
-			{
-				this.SafeInvoke(() =>
-				{
-					Console.WriteLine($"Connection error: {ex.Message}");
-					MessageBox.Show(ex.Message, "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
-					this.Close();
-				});
-			}
-		}
+        private void InitializeUIAfterConnection()
+        {
+            this.SafeInvoke(() =>
+            {
+                ChessPanel.Controls.Add(_boardPanel);
+                SetupEventHandlers();
+                InitializeLabels();
+            });
+        }
 
+        private void HandleInitializationError(Exception ex)
+        {
+            this.SafeInvoke(() =>
+            {
+                Console.WriteLine($"Connection error: {ex.Message}");
+                MessageBox.Show(ex.Message, "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                this.Close();
+            });
+        }
 
-
-		private void InitializeLabels()
+        private void InitializeLabels()
 		{
 			loadingLabel.Visible = false;
 			playerName_label.Text = "Привіт, " + _userName;
 			infoPanel.Visible = true;
 			player_side_label.Text = _networkClient.IsLocalPlayerWhite ? "Білі" : "Чорні";
 		}
+
 		private async void AnimateLoadingLabel()
 		{
 			while (loadingLabel.Visible)
@@ -90,6 +103,7 @@ namespace ChessGame
 				}
 			}
 		}
+
 		private void SetupEventHandlers()
 		{
 			_networkClient.OpponentNameReceived += name =>
@@ -107,8 +121,6 @@ namespace ChessGame
 			};
 
 		}
-
-
 
 		private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
 		{
